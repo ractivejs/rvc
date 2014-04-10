@@ -7,7 +7,8 @@
 	"main": ["rvc.js"],
 	"ignore": [
 		"**",
-		"!rvc.js"
+		"!rvc.js",
+		"!README.md"
 	],
 	"repository": {
 		"type": "git",
