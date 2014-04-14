@@ -1,6 +1,6 @@
 /*
 
-	rvc.js - v0.1.0 - 2014-04-14
+	rvc.js - v0.1.1 - 2014-04-14
 	==========================================================
 
 	https://github.com/ractivejs/rvc
@@ -199,7 +199,7 @@ define( [ 'ractive' ], function( Ractive ) {
 
 	/*
 
-	rcu (Ractive component utils) - 0.1.0 - 2014-04-14
+	rcu (Ractive component utils) - 0.1.1 - 2014-04-14
 	==============================================================
 
 	Copyright 2014 Rich Harris and contributors
