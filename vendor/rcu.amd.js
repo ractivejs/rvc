@@ -1,6 +1,6 @@
 /*
 
-	rcu (Ractive component utils) - 0.1.0 - 2014-04-01
+	rcu (Ractive component utils) - 0.1.1 - 2014-04-14
 	==============================================================
 
 	Copyright 2014 Rich Harris and contributors
@@ -108,34 +108,13 @@ define( function() {
 		}
 	}( getName );
 
-	var resolve = function resolvePath( relativePath, base ) {
-		var pathParts, relativePathParts, part;
-		if ( relativePath.charAt( 0 ) !== '.' ) {
-			// not a relative path!
-			return relativePath;
-		}
-		// 'foo/bar/baz.html' -> ['foo', 'bar', 'baz.html']
-		pathParts = ( base || '' ).split( '/' );
-		relativePathParts = relativePath.split( '/' );
-		// ['foo', 'bar', 'baz.html'] -> ['foo', 'bar']
-		pathParts.pop();
-		while ( part = relativePathParts.shift() ) {
-			if ( part === '..' ) {
-				pathParts.pop();
-			} else if ( part !== '.' ) {
-				pathParts.push( part );
-			}
-		}
-		return pathParts.join( '/' );
-	};
-
-	var make = function( resolve, parse ) {
+	var make = function( parse ) {
 
 		return function makeComponent( source, config, callback ) {
-			var definition, baseUrl, make, loadImport, imports, loadModule, modules, remainingDependencies, onloaded, onerror, errorMessage, ready;
+			var definition, url, make, loadImport, imports, loadModule, modules, remainingDependencies, onloaded, onerror, errorMessage, ready;
 			config = config || {};
 			// Implementation-specific config
-			baseUrl = config.baseUrl || '';
+			url = config.url || '';
 			loadImport = config.loadImport;
 			loadModule = config.loadModule;
 			onerror = config.onerror;
@@ -183,12 +162,12 @@ define( function() {
 			// If the definition includes sub-components e.g.
 			//     <link rel='ractive' href='foo.html'>
 			//
-			// ...or module dependencies e.g.
-			//     foo = require('foo')
+			// ...then we need to load them first, using the loadImport method
+			// specified by the implementation.
 			//
-			// ...then we need to load them first, assuming loaders were provided.
-			// Either way the callback will be called asychronously
-			remainingDependencies = definition.imports.length + definition.modules.length;
+			// In some environments (e.g. AMD) the same goes for modules, which
+			// most be loaded before the script can execute
+			remainingDependencies = definition.imports.length + ( loadModule ? definition.modules.length : 0 );
 			if ( remainingDependencies ) {
 				onloaded = function() {
 					if ( !--remainingDependencies ) {
@@ -205,23 +184,16 @@ define( function() {
 					}
 					imports = {};
 					definition.imports.forEach( function( toImport ) {
-						var name, path;
-						name = toImport.name;
-						path = resolve( baseUrl, toImport.href );
-						loadImport( name, path, function( Component ) {
-							imports[ name ] = Component;
+						loadImport( toImport.name, toImport.href, url, function( Component ) {
+							imports[ toImport.name ] = Component;
 							onloaded();
 						} );
 					} );
 				}
-				if ( definition.modules.length ) {
-					if ( !loadModule ) {
-						throw new Error( 'Component definition includes modules (e.g. `require("' + definition.imports[ 0 ].href + '")`) but no loadModule method was passed to rcu.make()' );
-					}
+				if ( loadModule && definition.modules.length ) {
 					modules = {};
 					definition.modules.forEach( function( name ) {
-						var path = resolve( name, baseUrl );
-						loadModule( name, path, function( Component ) {
+						loadModule( name, name, url, function( Component ) {
 							modules[ name ] = Component;
 							onloaded();
 						} );
@@ -232,7 +204,28 @@ define( function() {
 			}
 			ready = true;
 		};
-	}( resolve, parse );
+	}( parse );
+
+	var resolve = function resolvePath( relativePath, base ) {
+		var pathParts, relativePathParts, part;
+		if ( relativePath.charAt( 0 ) !== '.' ) {
+			// not a relative path!
+			return relativePath;
+		}
+		// 'foo/bar/baz.html' -> ['foo', 'bar', 'baz.html']
+		pathParts = ( base || '' ).split( '/' );
+		relativePathParts = relativePath.split( '/' );
+		// ['foo', 'bar', 'baz.html'] -> ['foo', 'bar']
+		pathParts.pop();
+		while ( part = relativePathParts.shift() ) {
+			if ( part === '..' ) {
+				pathParts.pop();
+			} else if ( part !== '.' ) {
+				pathParts.push( part );
+			}
+		}
+		return pathParts.join( '/' );
+	};
 
 	var rcu = function( parse, make, resolve, getName ) {
 

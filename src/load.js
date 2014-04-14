@@ -10,10 +10,10 @@ define([
 
 	return function load ( req, source, callback ) {
 		rcu.make( source, {
-			loadImport: function ( name, path, callback ) {
+			loadImport: function ( name, path, baseUrl, callback ) {
 				req([ 'rvc!' + path.replace( /\.html$/, '' ) ], callback );
 			},
-			loadModule: function ( name, path, callback ) {
+			loadModule: function ( name, path, baseUrl, callback ) {
 				req([ path ], callback );
 			},
 			require: function ( name ) {
