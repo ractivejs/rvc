@@ -18,7 +18,7 @@ define([
 		if ( config.isBuild ) {
 			build( name, source, callback );
 		} else {
-			load( req, source, callback );
+			load( name, req, source, callback );
 		}
 	});
 

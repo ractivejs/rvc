@@ -8,8 +8,9 @@ define([
 
 	rcu.init( Ractive );
 
-	return function load ( req, source, callback ) {
+	return function load ( name, req, source, callback ) {
 		rcu.make( source, {
+			url: name + '.html',
 			loadImport: function ( name, path, baseUrl, callback ) {
 				req([ 'rvc!' + path.replace( /\.html$/, '' ) ], callback );
 			},

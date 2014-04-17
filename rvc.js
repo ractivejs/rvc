@@ -1,6 +1,6 @@
 /*
 
-	rvc.js - v0.1.1 - 2014-04-14
+	rvc.js - v0.1.1 - 2014-04-17
 	==========================================================
 
 	https://github.com/ractivejs/rvc
@@ -199,7 +199,7 @@ define( [ 'ractive' ], function( Ractive ) {
 
 	/*
 
-	rcu (Ractive component utils) - 0.1.1 - 2014-04-14
+	rcu (Ractive component utils) - 0.1.1 - 2014-04-17
 	==============================================================
 
 	Copyright 2014 Rich Harris and contributors
@@ -319,7 +319,7 @@ define( [ 'ractive' ], function( Ractive ) {
 					};
 					if ( definition.script ) {
 						try {
-							fn = new Function( 'component', 'require', 'Ractive', definition.script );
+							fn = new Function( 'component', 'require', 'Ractive', definition.script + '\n//# sourceURL=' + url.substr( url.lastIndexOf( '/' ) + 1 ) );
 						} catch ( err ) {
 							errorMessage = 'Error creating function from component script: ' + err.message || err;
 							if ( onerror ) {
@@ -433,8 +433,9 @@ define( [ 'ractive' ], function( Ractive ) {
 	var load = function( rcu ) {
 
 		rcu.init( Ractive );
-		return function load( req, source, callback ) {
+		return function load( name, req, source, callback ) {
 			rcu.make( source, {
+				url: name + '.html',
 				loadImport: function( name, path, baseUrl, callback ) {
 					req( [ 'rvc!' + path.replace( /\.html$/, '' ) ], callback );
 				},
@@ -545,7 +546,7 @@ define( [ 'ractive' ], function( Ractive ) {
 			if ( config.isBuild ) {
 				build( name, source, callback );
 			} else {
-				load( req, source, callback );
+				load( name, req, source, callback );
 			}
 		} );
 	}( loader, rcuamd, load, build );
