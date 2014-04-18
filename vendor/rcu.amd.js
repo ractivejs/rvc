@@ -1,6 +1,6 @@
 /*
 
-	rcu (Ractive component utils) - 0.1.1 - 2014-04-17
+	rcu (Ractive component utils) - 0.1.1 - 2014-04-18
 	==============================================================
 
 	Copyright 2014 Rich Harris and contributors
@@ -128,7 +128,7 @@ define( function() {
 				};
 				if ( definition.script ) {
 					try {
-						fn = new Function( 'component', 'require', 'Ractive', definition.script + '\n//# sourceURL=' + url.substr( url.lastIndexOf( '/' ) + 1 ) );
+						fn = new Function( 'component', 'require', 'Ractive', definition.script + '\n//# sourceURL=' + url.substr( url.lastIndexOf( '/' ) + 1 ) + '.js' );
 					} catch ( err ) {
 						errorMessage = 'Error creating function from component script: ' + err.message || err;
 						if ( onerror ) {
