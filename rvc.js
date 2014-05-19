@@ -1,6 +1,6 @@
 /*
 
-	rvc.js - v0.1.1 - 2014-04-18
+	rvc.js - v0.1.1 - 2014-04-29
 	==========================================================
 
 	https://github.com/ractivejs/rvc
@@ -149,7 +149,7 @@ define( [ 'ractive' ], function( Ractive ) {
 				};
 				xhr.send( null );
 			};
-		} else if ( typeof process !== 'undefined' && process.versions && !! process.versions.node ) {
+		} else if ( typeof process !== 'undefined' && process.versions && !!process.versions.node ) {
 			var fs = requirejs.nodeRequire( 'fs' );
 			loader.fetch = function( path, callback ) {
 				callback( fs.readFileSync( path, 'utf8' ) );
@@ -199,31 +199,11 @@ define( [ 'ractive' ], function( Ractive ) {
 
 	/*
 
-	rcu (Ractive component utils) - 0.1.1 - 2014-04-18
+	rcu (Ractive component utils) - 0.1.1 - 2014-04-29
 	==============================================================
 
 	Copyright 2014 Rich Harris and contributors
-
-	Permission is hereby granted, free of charge, to any person
-	obtaining a copy of this software and associated documentation
-	files (the "Software"), to deal in the Software without
-	restriction, including without limitation the rights to use,
-	copy, modify, merge, publish, distribute, sublicense, and/or sell
-	copies of the Software, and to permit persons to whom the
-	Software is furnished to do so, subject to the following
-	conditions:
-
-	The above copyright notice and this permission notice shall be
-	included in all copies or substantial portions of the Software.
-
-	THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-	EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
-	OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-	NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
-	HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
-	WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
-	FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
-	OTHER DEALINGS IN THE SOFTWARE.
+	Released under the MIT license.
 
 */
 	var rcuamd = function() {
@@ -241,7 +221,7 @@ define( [ 'ractive' ], function( Ractive ) {
 		};
 		var parse = function( getName ) {
 			var requirePattern = /require\s*\(\s*(?:"([^"]+)"|'([^']+)')\s*\)/g;
-			return function parseComponentDefinition( source ) {
+			return function parse( source ) {
 				var template, links, imports, scripts, script, styles, match, modules, i, item;
 				template = Ractive.parse( source, {
 					noStringify: true,
@@ -300,9 +280,48 @@ define( [ 'ractive' ], function( Ractive ) {
 				return item.f;
 			}
 		}( getName );
-		var make = function( parse ) {
-			return function makeComponent( source, config, callback ) {
-				var definition, url, make, loadImport, imports, loadModule, modules, remainingDependencies, onloaded, onerror, errorMessage, ready;
+		var createFunction = function() {
+			var head, uid = 0;
+			if ( typeof document !== 'undefined' ) {
+				head = document.getElementsByTagName( 'head' )[ 0 ];
+			}
+			return function createFunction( code, options ) {
+				var oldOnerror, errored, scriptElement, dataURI, functionName, script = '';
+				options = options || {};
+				// generate a unique function name
+				functionName = 'rvc_' + uid+++'_' + Math.floor( Math.random() * 100000 );
+				if ( options.message ) {
+					script += '/*\n' + options.message + '*/\n\n';
+				}
+				script += functionName + ' = function ( component, require, Ractive ) {\n\n' + code + '\n\n};';
+				if ( options.sourceURL ) {
+					script += '\n//# sourceURL=' + options.sourceURL;
+				}
+				dataURI = 'data:text/javascript;charset=utf-8,' + encodeURIComponent( script );
+				scriptElement = document.createElement( 'script' );
+				scriptElement.src = dataURI;
+				scriptElement.onload = function() {
+					head.removeChild( scriptElement );
+					window.onerror = oldOnerror;
+					if ( errored ) {
+						if ( options.errback ) {
+							options.errback( 'Syntax error in component script' );
+						}
+					} else if ( options.onload ) {
+						options.onload( window[ functionName ] );
+						delete window[ functionName ];
+					}
+				};
+				oldOnerror = window.onerror;
+				window.onerror = function() {
+					errored = true;
+				};
+				head.appendChild( scriptElement );
+			};
+		}();
+		var make = function( parse, createFunction ) {
+			return function make( source, config, callback, errback ) {
+				var definition, url, createComponent, loadImport, imports, loadModule, modules, remainingDependencies, onloaded, onerror, ready;
 				config = config || {};
 				// Implementation-specific config
 				url = config.url || '';
@@ -310,45 +329,39 @@ define( [ 'ractive' ], function( Ractive ) {
 				loadModule = config.loadModule;
 				onerror = config.onerror;
 				definition = parse( source );
-				make = function() {
-					var options, fn, component, exports, Component, prop;
+				createComponent = function() {
+					var options, Component;
 					options = {
 						template: definition.template,
 						css: definition.css,
 						components: imports
 					};
 					if ( definition.script ) {
-						try {
-							fn = new Function( 'component', 'require', 'Ractive', definition.script + '\n//# sourceURL=' + url.substr( url.lastIndexOf( '/' ) + 1 ) + '.js' );
-						} catch ( err ) {
-							errorMessage = 'Error creating function from component script: ' + err.message || err;
-							if ( onerror ) {
-								onerror( errorMessage );
-							} else {
-								throw new Error( errorMessage );
-							}
-						}
-						try {
-							fn( component = {}, config.require, Ractive );
-						} catch ( err ) {
-							errorMessage = 'Error executing component script: ' + err.message || err;
-							if ( onerror ) {
-								onerror( errorMessage );
-							} else {
-								throw new Error( errorMessage );
-							}
-						}
-						exports = component.exports;
-						if ( typeof exports === 'object' ) {
-							for ( prop in exports ) {
-								if ( exports.hasOwnProperty( prop ) ) {
-									options[ prop ] = exports[ prop ];
+						createFunction( definition.script, {
+							sourceURL: url.substr( url.lastIndexOf( '/' ) + 1 ) + '.js',
+							onload: function( factory ) {
+								var component = {},
+									exports, prop;
+								factory( component, config.require, Ractive );
+								exports = component.exports;
+								if ( typeof exports === 'object' ) {
+									for ( prop in exports ) {
+										if ( exports.hasOwnProperty( prop ) ) {
+											options[ prop ] = exports[ prop ];
+										}
+									}
 								}
+								Component = Ractive.extend( options );
+								callback( Component );
+							},
+							onerror: function() {
+								errback( 'Error creating component' );
 							}
-						}
+						} );
+					} else {
+						Component = Ractive.extend( options );
+						callback( Component );
 					}
-					Component = Ractive.extend( options );
-					callback( Component );
 				};
 				// If the definition includes sub-components e.g.
 				//     <link rel='ractive' href='foo.html'>
@@ -363,9 +376,9 @@ define( [ 'ractive' ], function( Ractive ) {
 					onloaded = function() {
 						if ( !--remainingDependencies ) {
 							if ( ready ) {
-								make();
+								createComponent();
 							} else {
-								setTimeout( make, 0 );
+								setTimeout( createComponent, 0 );
 							}
 						}
 					};
@@ -391,11 +404,11 @@ define( [ 'ractive' ], function( Ractive ) {
 						} );
 					}
 				} else {
-					setTimeout( make, 0 );
+					setTimeout( createComponent, 0 );
 				}
 				ready = true;
 			};
-		}( parse );
+		}( parse, createFunction );
 		var resolve = function resolvePath( relativePath, base ) {
 			var pathParts, relativePathParts, part;
 			if ( relativePath.charAt( 0 ) !== '.' ) {
@@ -416,24 +429,25 @@ define( [ 'ractive' ], function( Ractive ) {
 			}
 			return pathParts.join( '/' );
 		};
-		var rcu = function( parse, make, resolve, getName ) {
+		var rcu = function( parse, make, createFunction, resolve, getName ) {
 			return {
 				init: function( copy ) {
 					Ractive = copy;
 				},
 				parse: parse,
 				make: make,
+				createFunction: createFunction,
 				resolve: resolve,
 				getName: getName
 			};
-		}( parse, make, resolve, getName );
+		}( parse, make, createFunction, resolve, getName );
 		return rcu;
 	}();
 
 	var load = function( rcu ) {
 
 		rcu.init( Ractive );
-		return function load( name, req, source, callback ) {
+		return function load( name, req, source, callback, errback ) {
 			rcu.make( source, {
 				url: name + '.html',
 				loadImport: function( name, path, baseUrl, callback ) {
@@ -445,7 +459,7 @@ define( [ 'ractive' ], function( Ractive ) {
 				require: function( name ) {
 					return req( name );
 				}
-			}, callback );
+			}, callback, errback );
 		};
 	}( rcuamd );
 
@@ -544,9 +558,9 @@ define( [ 'ractive' ], function( Ractive ) {
 		rcu.init( Ractive );
 		return amdLoader( 'rvc', 'html', function( name, source, req, callback, errback, config ) {
 			if ( config.isBuild ) {
-				build( name, source, callback );
+				build( name, source, callback, errback );
 			} else {
-				load( name, req, source, callback );
+				load( name, req, source, callback, errback );
 			}
 		} );
 	}( loader, rcuamd, load, build );

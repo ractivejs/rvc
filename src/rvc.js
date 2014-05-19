@@ -16,9 +16,9 @@ define([
 
 	return amdLoader( 'rvc', 'html', function( name, source, req, callback, errback, config ) {
 		if ( config.isBuild ) {
-			build( name, source, callback );
+			build( name, source, callback, errback );
 		} else {
-			load( name, req, source, callback );
+			load( name, req, source, callback, errback );
 		}
 	});
 
