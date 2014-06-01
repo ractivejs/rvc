@@ -1,6 +1,6 @@
 /*
 
-	rcu (Ractive component utils) - 0.1.1 - 2014-04-29
+	rcu (Ractive component utils) - 0.1.1 - 2014-06-01
 	==============================================================
 
 	Copyright 2014 Rich Harris and contributors
@@ -88,48 +88,86 @@ define( function() {
 		}
 	}( getName );
 
-	var createFunction = function() {
+	/*
 
-		var head, uid = 0;
+	eval2.js - 0.1.2 - 2014-06-01
+	==============================================================
+
+	Copyright 2014 Rich Harris
+	Released under the MIT license.
+
+*/
+	var eval2 = function() {
+
+		var _eval, isBrowser, isNode, head, Module;
+		// This causes code to be eval'd in the global scope
+		_eval = eval;
 		if ( typeof document !== 'undefined' ) {
+			isBrowser = true;
 			head = document.getElementsByTagName( 'head' )[ 0 ];
+		} else if ( typeof module !== 'undefined' && typeof module.constructor === 'function' ) {
+			isNode = true;
+			Module = module.constructor;
+		} else {
+			throw new Error( 'eval2: unknown environment. Please raise an issue at https://github.com/Rich-Harris/eval2/issues. Thanks!' );
 		}
-		return function createFunction( code, options ) {
-			var oldOnerror, errored, scriptElement, dataURI, functionName, script = '';
-			options = options || {};
-			// generate a unique function name
-			functionName = 'rvc_' + uid+++'_' + Math.floor( Math.random() * 100000 );
-			if ( options.message ) {
-				script += '/*\n' + options.message + '*/\n\n';
-			}
-			script += functionName + ' = function ( component, require, Ractive ) {\n\n' + code + '\n\n};';
+
+		function eval2( script, options ) {
+			options = typeof options === 'function' ? {
+				callback: options
+			} : options || {};
 			if ( options.sourceURL ) {
 				script += '\n//# sourceURL=' + options.sourceURL;
 			}
-			dataURI = 'data:text/javascript;charset=utf-8,' + encodeURIComponent( script );
+			try {
+				return _eval( script );
+			} catch ( err ) {
+				if ( isNode ) {
+					locateErrorUsingModule( script, options.sourceURL || '' );
+					return;
+				} else if ( isBrowser && err.name === 'SyntaxError' ) {
+					locateErrorUsingDataUri( script );
+				}
+				throw err;
+			}
+		}
+		eval2.Function = function() {
+			var i, args = [],
+				body, wrapped;
+			i = arguments.length;
+			while ( i-- ) {
+				args[ i ] = arguments[ i ];
+			}
+			body = args.pop();
+			wrapped = '(function (' + args.join( ', ' ) + ') {\n' + body + '\n})';
+			return eval2( wrapped );
+		};
+
+		function locateErrorUsingDataUri( code ) {
+			var dataURI, scriptElement;
+			dataURI = 'data:text/javascript;charset=utf-8,' + encodeURIComponent( code );
 			scriptElement = document.createElement( 'script' );
 			scriptElement.src = dataURI;
 			scriptElement.onload = function() {
 				head.removeChild( scriptElement );
-				window.onerror = oldOnerror;
-				if ( errored ) {
-					if ( options.errback ) {
-						options.errback( 'Syntax error in component script' );
-					}
-				} else if ( options.onload ) {
-					options.onload( window[ functionName ] );
-					delete window[ functionName ];
-				}
-			};
-			oldOnerror = window.onerror;
-			window.onerror = function() {
-				errored = true;
 			};
 			head.appendChild( scriptElement );
-		};
+		}
+
+		function locateErrorUsingModule( code, url ) {
+			var m = new Module();
+			try {
+				m._compile( 'module.exports = function () {\n' + code + '\n};', url );
+			} catch ( err ) {
+				console.error( err );
+				return;
+			}
+			m.exports();
+		}
+		return eval2;
 	}();
 
-	var make = function( parse, createFunction ) {
+	var make = function( parse, eval2 ) {
 
 		return function make( source, config, callback, errback ) {
 			var definition, url, createComponent, loadImport, imports, loadModule, modules, remainingDependencies, onloaded, onerror, ready;
@@ -141,33 +179,32 @@ define( function() {
 			onerror = config.onerror;
 			definition = parse( source );
 			createComponent = function() {
-				var options, Component;
+				var options, Component, script, factory, component, exports, prop;
 				options = {
 					template: definition.template,
 					css: definition.css,
 					components: imports
 				};
 				if ( definition.script ) {
-					createFunction( definition.script, {
-						sourceURL: url.substr( url.lastIndexOf( '/' ) + 1 ) + '.js',
-						onload: function( factory ) {
-							var component = {}, exports, prop;
-							factory( component, config.require, Ractive );
-							exports = component.exports;
-							if ( typeof exports === 'object' ) {
-								for ( prop in exports ) {
-									if ( exports.hasOwnProperty( prop ) ) {
-										options[ prop ] = exports[ prop ];
-									}
+					try {
+						script = definition.script + '\n//# sourceURL=' + url.substr( url.lastIndexOf( '/' ) + 1 ) + '.js';
+						factory = new eval2.Function( 'component', 'require', 'Ractive', definition.script );
+						component = {};
+						factory( component, config.require, Ractive );
+						exports = component.exports;
+						if ( typeof exports === 'object' ) {
+							for ( prop in exports ) {
+								if ( exports.hasOwnProperty( prop ) ) {
+									options[ prop ] = exports[ prop ];
 								}
 							}
-							Component = Ractive.extend( options );
-							callback( Component );
-						},
-						onerror: function() {
-							errback( 'Error creating component' );
 						}
-					} );
+						Component = Ractive.extend( options );
+					} catch ( err ) {
+						errback( err );
+						return;
+					}
+					callback( Component );
 				} else {
 					Component = Ractive.extend( options );
 					callback( Component );
@@ -218,7 +255,7 @@ define( function() {
 			}
 			ready = true;
 		};
-	}( parse, createFunction );
+	}( parse, eval2 );
 
 	var resolve = function resolvePath( relativePath, base ) {
 		var pathParts, relativePathParts, part;
@@ -241,7 +278,7 @@ define( function() {
 		return pathParts.join( '/' );
 	};
 
-	var rcu = function( parse, make, createFunction, resolve, getName ) {
+	var rcu = function( parse, make, resolve, getName ) {
 
 		return {
 			init: function( copy ) {
@@ -249,11 +286,10 @@ define( function() {
 			},
 			parse: parse,
 			make: make,
-			createFunction: createFunction,
 			resolve: resolve,
 			getName: getName
 		};
-	}( parse, make, createFunction, resolve, getName );
+	}( parse, make, resolve, getName );
 
 
 	return rcu;
