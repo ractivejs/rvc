@@ -8,6 +8,7 @@
 		assert = require( 'assert' );
 		requirejs = require( 'requirejs' );
 		baseUrl = 'src';
+		global.Ractive = require( 'ractive' );
 	} else {
 		assert = chai.assert;
 		requirejs = window.requirejs;

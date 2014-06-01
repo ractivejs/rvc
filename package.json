@@ -27,6 +27,7 @@
     "grunt-contrib-qunit": "~0.4.0",
     "tosource": "~0.1.1",
     "jit-grunt": "~0.4.1",
-    "requirejs": "~2.1.13"
+    "requirejs": "~2.1.13",
+    "ractive": "~0.4.0"
   }
 }
