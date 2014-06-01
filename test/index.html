@@ -1,16 +1,21 @@
-<!DOCTYPE HTML>
 <html>
 <head>
-	<title>Ractive Test Suite</title>
-	<link rel='stylesheet' href='vendor/qunit/qunit/qunit.css' type='text/css' media='screen' />
+	<meta charset="utf-8">
+	<title>rvc tests</title>
+	<link rel="stylesheet" href="vendor/mocha/mocha.css" />
 </head>
 <body>
-	<div id='qunit'></div>
-	<div id='qunit-fixture'></div>
+	<div id="mocha"></div>
 
-	<script src='vendor/qunit/qunit/qunit.js'></script>
-	<script src='vendor/ractive/ractive-legacy.js'></script>
-	<script src='vendor/requirejs/require.js' data-main='main'></script>
-
+	<script src="vendor/ractive/ractive-legacy.js"></script>
+	<script src="vendor/mocha/mocha.js"></script>
+	<script src="vendor/chai/chai.js"></script>
+	<script src="vendor/requirejs/require.js"></script>
+	<script>mocha.setup('bdd')</script>
+	<script src="tests.js"></script>
+	<script>
+		mocha.checkLeaks();
+		mocha.run();
+	</script>
 </body>
 </html>

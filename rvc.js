@@ -285,13 +285,13 @@ define( [ 'ractive' ], function( Ractive ) {
 			}
 		}( getName );
 		/*
-        
+
         	eval2.js - 0.1.2 - 2014-06-01
         	==============================================================
-        
+
         	Copyright 2014 Rich Harris
         	Released under the MIT license.
-        
+
         */
 		var eval2 = function() {
 			var _eval, isBrowser, isNode, head, Module;

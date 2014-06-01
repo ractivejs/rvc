@@ -26,6 +26,7 @@
     "grunt-jsbeautifier": "~0.2.6",
     "grunt-contrib-qunit": "~0.4.0",
     "tosource": "~0.1.1",
-    "jit-grunt": "~0.4.1"
+    "jit-grunt": "~0.4.1",
+    "requirejs": "~2.1.13"
   }
 }
