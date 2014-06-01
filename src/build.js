@@ -51,7 +51,7 @@ define([
 		if ( definition.script ) {
 			builtModule += '\n' + definition.script + '\n' +
 				'  if ( typeof component.exports === "object" ) {\n    ' +
-					'for ( __prop__ in component.exports ) {\n      ' +
+					'for ( var __prop__ in component.exports ) {\n      ' +
 						'if ( component.exports.hasOwnProperty(__prop__) ) {\n        ' +
 							'__options__[__prop__] = component.exports[__prop__];\n      ' +
 						'}\n    ' +

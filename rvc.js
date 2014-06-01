@@ -1,6 +1,6 @@
 /*
 
-	rvc.js - v0.1.1 - 2014-04-29
+	rvc.js - v0.1.3 - 2014-06-01
 	==========================================================
 
 	https://github.com/ractivejs/rvc
@@ -151,8 +151,13 @@ define( [ 'ractive' ], function( Ractive ) {
 			};
 		} else if ( typeof process !== 'undefined' && process.versions && !!process.versions.node ) {
 			var fs = requirejs.nodeRequire( 'fs' );
-			loader.fetch = function( path, callback ) {
-				callback( fs.readFileSync( path, 'utf8' ) );
+			loader.fetch = function( path, callback, errback ) {
+				fs.readFile( path, 'utf8', function( err, file ) {
+					if ( err ) {
+						return errback( err );
+					}
+					callback( file );
+				} );
 			};
 		} else if ( typeof Packages !== 'undefined' ) {
 			loader.fetch = function( path, callback, errback ) {
@@ -447,10 +452,11 @@ define( [ 'ractive' ], function( Ractive ) {
 	var load = function( rcu ) {
 
 		rcu.init( Ractive );
-		return function load( name, req, source, callback, errback ) {
+		return function load( base, req, source, callback, errback ) {
 			rcu.make( source, {
-				url: name + '.html',
+				url: base + '.html',
 				loadImport: function( name, path, baseUrl, callback ) {
+					path = rcu.resolve( path, base );
 					req( [ 'rvc!' + path.replace( /\.html$/, '' ) ], callback );
 				},
 				loadModule: function( name, path, baseUrl, callback ) {
@@ -546,7 +552,7 @@ define( [ 'ractive' ], function( Ractive ) {
 			dependencies = dependencies.concat( definition.modules );
 			builtModule = '' + 'define("rvc!' + name + '",' + JSON.stringify( dependencies ) + ',function(' + dependencyArgs.join( ',' ) + '){\n' + '  var __options__={\n    template:' + toSource( definition.template, null, '', '' ) + ',\n' + ( definition.css ? '    css:' + JSON.stringify( minifycss( definition.css ) ) + ',\n' : '' ) + ( definition.imports.length ? '    components:{' + importMap.join( ',' ) + '}\n' : '' ) + '  },\n' + '  component={};';
 			if ( definition.script ) {
-				builtModule += '\n' + definition.script + '\n' + '  if ( typeof component.exports === "object" ) {\n    ' + 'for ( __prop__ in component.exports ) {\n      ' + 'if ( component.exports.hasOwnProperty(__prop__) ) {\n        ' + '__options__[__prop__] = component.exports[__prop__];\n      ' + '}\n    ' + '}\n  ' + '}\n\n  ';
+				builtModule += '\n' + definition.script + '\n' + '  if ( typeof component.exports === "object" ) {\n    ' + 'for ( var __prop__ in component.exports ) {\n      ' + 'if ( component.exports.hasOwnProperty(__prop__) ) {\n        ' + '__options__[__prop__] = component.exports[__prop__];\n      ' + '}\n    ' + '}\n  ' + '}\n\n  ';
 			}
 			builtModule += 'return Ractive.extend(__options__);\n});';
 			callback( builtModule );

@@ -155,8 +155,14 @@ define(function() {
   }
   else if (typeof process !== 'undefined' && process.versions && !!process.versions.node) {
     var fs = requirejs.nodeRequire('fs');
-    loader.fetch = function(path, callback) {
-      callback(fs.readFileSync(path, 'utf8'));
+    loader.fetch = function(path, callback, errback) {
+      fs.readFile(path, 'utf8', function (err, file) {
+        if (err) {
+          return errback(err);
+        }
+
+         callback(file);
+      });
     }
   }
   else if (typeof Packages !== 'undefined') {
