@@ -31,7 +31,6 @@
 	describe( 'rvc', function () {
 		load( 'simple', 'should render a simple template', function ( Component ) {
 			var ractive = new Component();
-			console.log( ractive.toHTML() );
 			assert.equal( ractive.toHTML(), '<h1>Hello world!</h1>' );
 		});
 	});
