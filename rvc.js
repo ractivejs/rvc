@@ -152,12 +152,11 @@ define( [ 'ractive' ], function( Ractive ) {
 		} else if ( typeof process !== 'undefined' && process.versions && !!process.versions.node ) {
 			var fs = requirejs.nodeRequire( 'fs' );
 			loader.fetch = function( path, callback, errback ) {
-				fs.readFile( path, 'utf8', function( err, file ) {
-					if ( err ) {
-						return errback( err );
-					}
-					callback( file );
-				} );
+				try {
+					callback( fs.readFileSync( path, 'utf8' ) );
+				} catch ( err ) {
+					errback( err );
+				}
 			};
 		} else if ( typeof Packages !== 'undefined' ) {
 			loader.fetch = function( path, callback, errback ) {
