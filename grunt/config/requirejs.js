@@ -8,7 +8,7 @@ module.exports = {
 			paths: {
 				'amd-loader': '../vendor/amd-loader',
 				'tosource': '../vendor/tosource',
-				'rcu.amd': '../vendor/rcu.amd'
+				'rcu': '../node_modules/rcu/rcu.amd'
 			},
 			logLevel: 2,
 			onBuildWrite: function( name, path, contents ) {

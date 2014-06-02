@@ -1,6 +1,6 @@
 define([
 	'amd-loader',
-	'rcu.amd',
+	'rcu',
 	'load',
 	'build'
 ], function (

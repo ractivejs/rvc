@@ -1,5 +1,5 @@
 define([
-	'rcu.amd',
+	'rcu',
 	'tosource',
 	'minifycss'
 ], function (

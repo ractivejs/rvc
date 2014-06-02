@@ -21,7 +21,7 @@
 		paths: {
 			'ractive': '../test/vendor/ractive/ractive',
 			'amd-loader': '../vendor/amd-loader',
-			'rcu.amd': '../vendor/rcu.amd',
+			'rcu': '../node_modules/rcu/rcu.amd',
 			'tosource': '../vendor/tosource',
 
 			'samples': '../test/samples'
