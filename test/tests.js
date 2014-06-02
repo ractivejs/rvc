@@ -33,12 +33,19 @@
 			var ractive = new Component();
 			assert.equal( ractive.toHTML(), '<h1>Hello world!</h1>' );
 		});
+
+		load( 'error', 'should fail', null, function ( err ) {
+			assert.ok( err instanceof Error );
+		});
 	});
 
-	function load ( name, description, callback ) {
+	function load ( name, description, callback, errback ) {
 		it( description, function ( done ) {
 			requirejs([ 'rvc!samples/' + name ], function ( Component ) {
 				callback( Component );
+				done();
+			}, function ( err ) {
+				errback( err );
 				done();
 			});
 		});

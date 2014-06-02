@@ -1,6 +1,6 @@
 /*
 
-	rcu (Ractive component utils) - 0.1.3 - 2014-06-01
+	rcu (Ractive component utils) - 0.1.4 - 2014-06-01
 	==============================================================
 
 	Copyright 2014 Rich Harris and contributors
@@ -90,7 +90,7 @@ define( function() {
 
 	/*
 
-	eval2.js - 0.1.3 - 2014-06-01
+	eval2.js - 0.1.5 - 2014-06-01
 	==============================================================
 
 	Copyright 2014 Rich Harris
@@ -99,25 +99,17 @@ define( function() {
 */
 	var eval2 = function() {
 
-		var _eval, isBrowser, isNode, _nodeRequire, head, Module, useFs, fs, path;
+		var eval2, _eval, isBrowser, isNode, head, Module;
 		// This causes code to be eval'd in the global scope
 		_eval = eval;
 		if ( typeof document !== 'undefined' ) {
 			isBrowser = true;
 			head = document.getElementsByTagName( 'head' )[ 0 ];
-		} else if ( typeof process !== 'undefined' ) {
+		} else if ( typeof module !== 'undefined' && typeof module._compile === 'function' ) {
 			isNode = true;
-			_nodeRequire = require;
-			fs = _nodeRequire( 'fs' );
-			path = _nodeRequire( 'path' );
-			if ( typeof module !== 'undefined' && typeof module.constructor === 'function' ) {
-				Module = module.constructor;
-			} else {
-				useFs = true;
-			}
+			Module = module.constructor;
 		}
-
-		function eval2( script, options ) {
+		eval2 = function eval2( script, options ) {
 			options = typeof options === 'function' ? {
 				callback: options
 			} : options || {};
@@ -130,12 +122,16 @@ define( function() {
 				if ( isNode ) {
 					locateErrorUsingModule( script, options.sourceURL || '' );
 					return;
-				} else if ( isBrowser && err.name === 'SyntaxError' ) {
-					locateErrorUsingDataUri( script );
+				} else if ( isBrowser ) {
+					// In browsers, only locate syntax errors. Other errors can
+					// be located via the console in the normal fashion
+					if ( err.name === 'SyntaxError' ) {
+						locateErrorUsingDataUri( script );
+					}
 				}
 				throw err;
 			}
-		}
+		};
 		eval2.Function = function() {
 			var i, args = [],
 				body, wrapped;
@@ -160,32 +156,14 @@ define( function() {
 		}
 
 		function locateErrorUsingModule( code, url ) {
-			var m, x, wrapped, name, filepath;
-			if ( useFs ) {
-				wrapped = 'module.exports = function () {\n' + code + '\n};';
-				name = '__eval2_' + Math.floor( Math.random() * 100000 ) + '__';
-				filepath = path.join( __dirname, name + '.js' );
-				fs.writeFileSync( filepath, wrapped );
-				try {
-					x = _nodeRequire( './' + name );
-				} catch ( err ) {
-					console.error( err );
-					fs.unlinkSync( filepath, wrapped );
-					return;
-				}
-				fs.unlinkSync( filepath, wrapped );
-				x();
-			} else {
-				m = new Module();
-				try {
-					m._compile( 'module.exports = function () {\n' + code + '\n};', url );
-				} catch ( err ) {
-					console.error( err );
-					return;
-				}
-				x = m.x;
+			var m = new Module();
+			try {
+				m._compile( 'module.exports = function () {\n' + code + '\n};', url );
+			} catch ( err ) {
+				console.error( err );
+				return;
 			}
-			x();
+			m.exports();
 		}
 		return eval2;
 	}();
