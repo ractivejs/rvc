@@ -1,6 +1,6 @@
 /*
 
-	rvc.js - v0.1.5 - 2014-06-01
+	rvc.js - v0.1.6 - 2014-06-01
 	==========================================================
 
 	https://github.com/ractivejs/rvc
@@ -8,7 +8,9 @@
 
 */
 
-define( [ 'ractive' ], function( Ractive ) {
+define( [ 'ractive'
+	'module'
+], function( Ractive, module ) {
 
 	'use strict';
 
@@ -294,17 +296,27 @@ define( [ 'ractive' ], function( Ractive ) {
         
         */
 		var eval2 = function() {
-			var eval2, _eval, isBrowser, isNode, head, Module;
+			var _eval, isBrowser, isNode, _nodeRequire, _dir, head, Module, useFs, fs, path;
 			// This causes code to be eval'd in the global scope
 			_eval = eval;
 			if ( typeof document !== 'undefined' ) {
 				isBrowser = true;
 				head = document.getElementsByTagName( 'head' )[ 0 ];
-			} else if ( typeof module !== 'undefined' && typeof module._compile === 'function' ) {
+			} else if ( typeof process !== 'undefined' ) {
 				isNode = true;
-				Module = module.constructor;
+				if ( typeof module !== 'undefined' && typeof module._compile === 'function' ) {
+					Module = module.constructor;
+				} else {
+					// Special case - we're possibly using RequireJS in node
+					useFs = true;
+					_nodeRequire = require.nodeRequire;
+					fs = _nodeRequire( 'fs' );
+					path = _nodeRequire( 'path' );
+					_dir = typeof __dirname !== 'undefined' ? __dirname : path.resolve( path.dirname( module.uri ) );
+				}
 			}
-			eval2 = function eval2( script, options ) {
+
+			function eval2( script, options ) {
 				options = typeof options === 'function' ? {
 					callback: options
 				} : options || {};
@@ -317,16 +329,12 @@ define( [ 'ractive' ], function( Ractive ) {
 					if ( isNode ) {
 						locateErrorUsingModule( script, options.sourceURL || '' );
 						return;
-					} else if ( isBrowser ) {
-						// In browsers, only locate syntax errors. Other errors can
-						// be located via the console in the normal fashion
-						if ( err.name === 'SyntaxError' ) {
-							locateErrorUsingDataUri( script );
-						}
+					} else if ( isBrowser && err.name === 'SyntaxError' ) {
+						locateErrorUsingDataUri( script );
 					}
 					throw err;
 				}
-			};
+			}
 			eval2.Function = function() {
 				var i, args = [],
 					body, wrapped;
@@ -351,14 +359,32 @@ define( [ 'ractive' ], function( Ractive ) {
 			}
 
 			function locateErrorUsingModule( code, url ) {
-				var m = new Module();
-				try {
-					m._compile( 'module.exports = function () {\n' + code + '\n};', url );
-				} catch ( err ) {
-					console.error( err );
-					return;
+				var m, x, wrapped, name, filepath;
+				if ( useFs ) {
+					wrapped = 'module.exports = function () {\n' + code + '\n};';
+					name = '__eval2_' + Math.floor( Math.random() * 100000 ) + '__';
+					filepath = path.join( _dir, name + '.js' );
+					fs.writeFileSync( filepath, wrapped );
+					try {
+						x = _nodeRequire( filepath );
+					} catch ( err ) {
+						console.error( err );
+						fs.unlinkSync( filepath, wrapped );
+						return;
+					}
+					fs.unlinkSync( filepath, wrapped );
+					x();
+				} else {
+					m = new Module();
+					try {
+						m._compile( 'module.exports = function () {\n' + code + '\n};', url );
+					} catch ( err ) {
+						console.error( err );
+						return;
+					}
+					x = m.x;
 				}
-				m.exports();
+				x();
 			}
 			return eval2;
 		}();

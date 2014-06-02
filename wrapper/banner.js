@@ -8,7 +8,7 @@
 
 */
 
-define([ 'ractive' ], function ( Ractive ) {
+define([ 'ractive' 'module' ], function ( Ractive, module ) {
 
 	'use strict';
 
