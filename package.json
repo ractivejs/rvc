@@ -1,6 +1,6 @@
 {
   "name": "rvc",
-  "version": "0.1.8",
+  "version": "0.2.0",
   "description": "RequireJS plugin to load and optimise Ractive components",
   "main": "rvc.js",
   "repository": {
@@ -28,7 +28,7 @@
     "tosource": "~0.1.1",
     "jit-grunt": "~0.4.1",
     "requirejs": "~2.1.13",
-    "ractive": "~0.4.0",
-    "rcu": "~0.1.6"
+    "ractive": "~0.5.4",
+    "rcu": "~0.2.0"
   }
 }

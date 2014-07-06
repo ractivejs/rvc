@@ -1,6 +1,6 @@
 /*
 
-	rvc.js - v0.1.7 - 2014-06-02
+	rvc.js - v0.2.0 - 2014-07-05
 	==========================================================
 
 	https://github.com/ractivejs/rvc
@@ -205,14 +205,14 @@ define( [ 'ractive'
 
 	/*
 
-	rcu (Ractive component utils) - 0.1.5 - 2014-06-02
+	rcu (Ractive component utils) - 0.2.0 - 2014-07-05
 	==============================================================
 
 	Copyright 2014 Rich Harris and contributors
 	Released under the MIT license.
 
 */
-	var rcuamd = function() {
+	var rcu = function() {
 
 		var Ractive;
 		var getName = function getName( path ) {
@@ -228,38 +228,51 @@ define( [ 'ractive'
 		var parse = function( getName ) {
 			var requirePattern = /require\s*\(\s*(?:"([^"]+)"|'([^']+)')\s*\)/g;
 			return function parse( source ) {
-				var template, links, imports, scripts, script, styles, match, modules, i, item;
-				template = Ractive.parse( source, {
+				var parsed, template, links, imports, scripts, script, styles, match, modules, i, item;
+				parsed = Ractive.parse( source, {
 					noStringify: true,
 					interpolateScripts: false,
 					interpolateStyles: false
 				} );
+				if ( parsed.v !== 1 ) {
+					throw new Error( 'Mismatched template version! Please ensure you are using the latest version of Ractive.js in your build process as well as in your app' );
+				}
 				links = [];
 				scripts = [];
 				styles = [];
 				modules = [];
 				// Extract certain top-level nodes from the template. We work backwards
 				// so that we can easily splice them out as we go
+				template = parsed.t;
 				i = template.length;
 				while ( i-- ) {
 					item = template[ i ];
 					if ( item && item.t === 7 ) {
-						if ( item.e === 'link' && ( item.a && item.a.rel[ 0 ] === 'ractive' ) ) {
+						if ( item.e === 'link' && ( item.a && item.a.rel === 'ractive' ) ) {
 							links.push( template.splice( i, 1 )[ 0 ] );
 						}
-						if ( item.e === 'script' && ( !item.a || !item.a.type || item.a.type[ 0 ] === 'text/javascript' ) ) {
+						if ( item.e === 'script' && ( !item.a || !item.a.type || item.a.type === 'text/javascript' ) ) {
 							scripts.push( template.splice( i, 1 )[ 0 ] );
 						}
-						if ( item.e === 'style' && ( !item.a || !item.a.type || item.a.type[ 0 ] === 'text/css' ) ) {
+						if ( item.e === 'style' && ( !item.a || !item.a.type || item.a.type === 'text/css' ) ) {
 							styles.push( template.splice( i, 1 )[ 0 ] );
 						}
 					}
 				}
+				// Clean up template - trim whitespace left over from the removal
+				// of <link>, <style> and <script> tags from start...
+				while ( /^\s*$/.test( template[ 0 ] ) ) {
+					template.shift();
+				}
+				// ...and end
+				while ( /^\s*$/.test( template[ template.length - 1 ] ) ) {
+					template.pop();
+				}
 				// Extract names from links
 				imports = links.map( function( link ) {
 					var href, name;
-					href = link.a.href && link.a.href[ 0 ];
-					name = link.a.name && link.a.name[ 0 ] || getName( href );
+					href = link.a.href;
+					name = link.a.name || getName( href );
 					if ( typeof name !== 'string' ) {
 						throw new Error( 'Error parsing link tag' );
 					}
@@ -274,7 +287,7 @@ define( [ 'ractive'
 				}
 				// TODO glue together text nodes, where applicable
 				return {
-					template: template,
+					template: parsed,
 					imports: imports,
 					script: script,
 					css: styles.map( extractFragment ).join( ' ' ),
@@ -363,18 +376,18 @@ define( [ 'ractive'
 		}();
 		var make = function( parse, eval2 ) {
 			return function make( source, config, callback, errback ) {
-				var definition, url, createComponent, loadImport, imports, loadModule, modules, remainingDependencies, onloaded, onerror, ready;
+				var definition, url, createComponent, loadImport, imports, loadModule, modules, remainingDependencies, onloaded, ready;
 				config = config || {};
 				// Implementation-specific config
 				url = config.url || '';
 				loadImport = config.loadImport;
 				loadModule = config.loadModule;
-				onerror = config.onerror;
 				definition = parse( source );
 				createComponent = function() {
 					var options, Component, script, factory, component, exports, prop;
 					options = {
 						template: definition.template,
+						partials: definition.partials,
 						css: definition.css,
 						components: imports
 					};
@@ -451,8 +464,9 @@ define( [ 'ractive'
 		}( parse, eval2 );
 		var resolve = function resolvePath( relativePath, base ) {
 			var pathParts, relativePathParts, part;
-			if ( relativePath.charAt( 0 ) !== '.' ) {
-				// not a relative path!
+			// If we've got an absolute path, or base is '', return
+			// relativePath
+			if ( !base || relativePath.charAt( 0 ) === '/' ) {
 				return relativePath;
 			}
 			// 'foo/bar/baz.html' -> ['foo', 'bar', 'baz.html']
@@ -501,7 +515,7 @@ define( [ 'ractive'
 				}
 			}, callback, errback );
 		};
-	}( rcuamd );
+	}( rcu );
 
 	/* toSource by Marcello Bastea-Forte - zlib license */
 	/* altered to export as AMD module */
@@ -591,7 +605,7 @@ define( [ 'ractive'
 			builtModule += 'return Ractive.extend(__options__);\n});';
 			callback( builtModule );
 		};
-	}( rcuamd, tosource, minifycss );
+	}( rcu, tosource, minifycss );
 
 	var rvc = function( amdLoader, rcu, load, build ) {
 
@@ -603,7 +617,7 @@ define( [ 'ractive'
 				load( name, req, source, callback, errback );
 			}
 		} );
-	}( loader, rcuamd, load, build );
+	}( loader, rcu, load, build );
 
 	return rvc;
 
