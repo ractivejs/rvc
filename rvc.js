@@ -1,6 +1,6 @@
 /*
 
-	rvc.js - v0.2.0 - 2014-07-05
+	rvc.js - v0.2.1 - 2014-07-09
 	==========================================================
 
 	https://github.com/ractivejs/rvc
@@ -8,9 +8,7 @@
 
 */
 
-define( [ 'ractive'
-	'module'
-], function( Ractive, module ) {
+define( [ 'ractive' ], function( Ractive ) {
 
 	'use strict';
 
