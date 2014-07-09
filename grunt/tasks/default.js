@@ -7,7 +7,8 @@ module.exports = function ( grunt ) {
 		'requirejs',
 		//'qunit',
 		'concat',
-		'jsbeautifier'
+		'jsbeautifier',
+		'uglify'
 	]);
 
 };
