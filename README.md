@@ -69,6 +69,19 @@ The great feature of RequireJS is that while you can develop your app without ha
 
 In addition to this 'inlining' of your components, rvc will parse your templates so that no additional computation needs to happen in the browser.
 
+Once your project is optimised, you don't need the plugin itself, so add `rvc` to the `stubModules` option:
+
+```js
+// optimiser config
+{
+  paths: {
+    ractive: 'lib/ractive',
+    rvc: 'plugins/rvc'
+  },
+  stubModules: [ 'rvc' ]
+}
+```
+
 Consult the [documentation](http://requirejs.org/docs/optimization.html) for more information on using the optimiser.
 
 
