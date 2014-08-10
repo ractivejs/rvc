@@ -1,6 +1,8 @@
 # rvc.js
 
-[RequireJS](requirejs.org) supports *loader plugins*, which allow your AMD modules to specify dependencies that *aren't* AMD modules, by prefixing the path with the plugin name followed by `!`. **rvc** is one such loader plugin, and it allows you to require component files.
+[RequireJS](requirejs.org) supports *loader plugins*, which allow your AMD modules to specify dependencies that *aren't* AMD modules, by prefixing the path with the plugin name followed by `!`.
+
+rvc is one such loader plugin, and it allows you to require component files.
 
 If you're not sure what 'component files' are, [have a read of this](https://github.com/ractivejs/component-spec). If you're not familiar with RequireJS loader plugins, [there's some documentation here](http://requirejs.org/docs/api.html#plugins).
 
