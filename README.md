@@ -19,7 +19,7 @@ To get `rvc.min.js` you can:
 
 ## Usage
 
-First, RequireJS needs to be able to find `rvc.js` and `ractive.js`. Either it should be in the root of your project (or whatever `baseUrl` is configured to be), or you'll need to set up the `paths` config like so (obviously, change the paths as appropriate):
+First, RequireJS needs to be able to find `rvc.js` and `ractive.js`. Either it should be in the root of your project (or whatever `baseUrl` is configured to be), or you'll need to set up the `paths` config (obviously, change the paths as appropriate):
 
 ```js
 require.config({
@@ -75,4 +75,3 @@ Consult the [documentation](http://requirejs.org/docs/optimization.html) for mor
 ## License
 
 MIT.
-```
