@@ -1,6 +1,6 @@
 {
   "name": "rvc",
-  "version": "0.2.3",
+  "version": "0.3.0",
   "description": "RequireJS plugin to load and optimise Ractive components",
   "main": "rvc.js",
   "repository": {
@@ -18,18 +18,21 @@
   "author": "Rich Harris",
   "license": "MIT",
   "devDependencies": {
-    "grunt": "~0.4.4",
-    "grunt-contrib-requirejs": "~0.4.3",
-    "grunt-contrib-jshint": "~0.9.2",
-    "grunt-contrib-concat": "~0.4.0",
-	"grunt-contrib-uglify": "0.5.0",
-    "amdclean": "~1.5.0",
-    "grunt-jsbeautifier": "~0.2.6",
-    "grunt-contrib-qunit": "~0.4.0",
-    "tosource": "~0.1.1",
-    "jit-grunt": "~0.4.1",
-    "requirejs": "~2.1.13",
-    "ractive": "~0.5.4",
-    "rcu": "^0.2.1"
+    "babel-core": "^4.7.12",
+    "es6-promise": "^2.0.1",
+    "gobble": "^0.7.8",
+    "gobble-babel": "^4.0.1",
+    "gobble-cli": "^0.3.5",
+    "gobble-esperanto-bundle": "^0.1.7",
+    "rcu": "git://github.com/ractivejs/rcu#edge",
+    "requirejs": "^2.1.16",
+    "resolve": "^1.1.6",
+    "tosource": "~0.1.1"
+  },
+  "dependencies": {
+    "ractive": "^0.7.0"
+  },
+  "scripts": {
+    "build": "gobble build -f dist"
   }
 }

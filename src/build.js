@@ -1,66 +1,62 @@
-define([
-	'rcu',
-	'tosource',
-	'minifycss'
-], function (
-	rcu,
-	toSource,
-	minifycss
-) {
+import rcu from 'rcu';
+import toSource from './tosource';
+import minifycss from './minifycss';
 
-	'use strict';
+export default function build ( name, source, callback ) {
+	let definition = rcu.parse( source );
+	let dependencies = [ 'require', 'ractive' ];
+	let dependencyArgs = [ 'require', 'Ractive' ];
+	let importMap = [];
 
-	return function ( name, source, callback ) {
-		var definition,
-			dependencies = ['require','ractive'],
-			dependencyArgs = ['require','Ractive'],
-			importMap = [],
-			builtModule;
+	// Add dependencies from <link> tags, i.e. sub-components
+	definition.imports.forEach( ( toImport, i ) => {
+		let href = toImport.href;
+		let name = toImport.name;
 
-		definition = rcu.parse( source );
+		let argumentName = `_import_${i}`;
 
-		// Add dependencies from <link> tags, i.e. sub-components
-		definition.imports.forEach( function ( toImport, i ) {
-			var href, name, argumentName;
+		dependencies.push( 'rvc!' + href.replace( /\.html$/, '' ) );
+		dependencyArgs.push( argumentName );
 
-			href = toImport.href;
-			name = toImport.name;
+		importMap.push( `"${name}": ${argumentName}` );
+	});
 
-			argumentName = '_import_' + i;
+	// Add dependencies from inline require() calls
+	dependencies = dependencies.concat( definition.modules );
 
-			dependencies.push( 'rvc!' + href.replace( /\.html$/, '' ) );
-			dependencyArgs.push( argumentName );
+	let options = [
+		`template: ${toSource( definition.template, null, '', '' )}`
+	];
 
-			importMap.push( '"' + name + '":' + argumentName );
-		});
+	if ( definition.css ) {
+		options.push( `css: ${JSON.stringify( minifycss( definition.css ) )}` );
+	}
 
-		// Add dependencies from inline require() calls
-		dependencies = dependencies.concat( definition.modules );
+	if ( definition.imports.length ) {
+		options.push( `components: {${importMap.join( ',' )}}` );
+	}
 
-		builtModule = '' +
+	let builtModule = `define("rvc!${name}", ${JSON.stringify( dependencies )},function(${dependencyArgs.join( ',' )}){
+	var __options__ = {
+		${options.join(',\n\t\t')}
+	},
+	component = {};`;
 
-		'define("rvc!' + name +'",' + JSON.stringify( dependencies ) + ',function(' + dependencyArgs.join( ',' ) + '){\n' +
-		'  var __options__={\n    template:' + toSource( definition.template, null, '', '' ) + ',\n' +
-		( definition.css ?
-		'    css:' + JSON.stringify( minifycss( definition.css ) ) + ',\n' : '' ) +
-		( definition.imports.length ?
-		'    components:{' + importMap.join( ',' ) + '}\n' : '' ) +
-		'  },\n' +
-		'  component={};';
-
-		if ( definition.script ) {
-			builtModule += '\n' + definition.script + '\n' +
-				'  if ( typeof component.exports === "object" ) {\n    ' +
-					'for ( var __prop__ in component.exports ) {\n      ' +
-						'if ( component.exports.hasOwnProperty(__prop__) ) {\n        ' +
-							'__options__[__prop__] = component.exports[__prop__];\n      ' +
-						'}\n    ' +
-					'}\n  ' +
-				'}\n\n  ';
+	if ( definition.script ) {
+		builtModule += `
+${definition.script}
+	if ( typeof component.exports === "object" ) {
+		for ( var __prop__ in component.exports ) {
+			if ( component.exports.hasOwnProperty(__prop__) ) {
+				__options__[__prop__] = component.exports[__prop__];
+			}
 		}
+	}
+`;
+	}
 
-		builtModule += 'return Ractive.extend(__options__);\n});';
-		callback( builtModule );
-	};
+	builtModule += `return Ractive.extend(__options__);
+});`;
 
-});
+	callback( builtModule );
+}

@@ -7,23 +7,19 @@
 	if ( typeof process !== 'undefined' ) {
 		assert = require( 'assert' );
 		requirejs = require( 'requirejs' );
-		baseUrl = 'src';
+		baseUrl = 'dist';
 		global.Ractive = require( 'ractive' );
 	} else {
 		assert = chai.assert;
 		requirejs = window.requirejs;
-		baseUrl = '../src';
-		fixture = document.getElementById( 'qunit-fixture' );
+		baseUrl = '../dist';
+		fixture = document.getElementById( 'fixture' );
 	}
 
 	requirejs.config({
 		baseUrl: baseUrl,
 		paths: {
-			'ractive': '../test/vendor/ractive/ractive',
-			'amd-loader': '../vendor/amd-loader',
-			'rcu': '../node_modules/rcu/rcu.amd',
-			'tosource': '../vendor/tosource',
-
+			'ractive': '../node_modules/ractive/ractive-legacy',
 			'samples': '../test/samples'
 		}
 	});
@@ -34,9 +30,30 @@
 			assert.equal( ractive.toHTML(), '<h1>Hello world!</h1>' );
 		});
 
+		// browser-only tests (TODO rig up JSDOM so we can do this in node)
+		if ( fixture ) {
+			load( 'styled', 'should load a component with CSS', function ( Component ) {
+				var ractive = new Component({ el: fixture });
+				var p = ractive.find( 'p' );
+
+				var dummy = document.createElement( 'p' );
+				document.body.appendChild( dummy );
+
+				var red = document.createElement( 'p' );
+				red.style.color = 'red';
+				document.body.appendChild( red );
+				var RED = getComputedStyle( red ).color;
+
+				assert.equal( ractive.toHTML(), '<p>red</p>' );
+				assert.equal( getComputedStyle( p ).color, RED );
+				assert.notEqual( getComputedStyle( dummy ).color, RED );
+			});
+		}
+
 		load( 'error', 'should fail', null, function ( err ) {
 			assert.ok( err instanceof Error );
 		});
+
 	});
 
 	function load ( name, description, callback, errback ) {
