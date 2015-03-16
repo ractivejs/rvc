@@ -24,7 +24,7 @@
     "gobble-babel": "^4.0.1",
     "gobble-cli": "^0.3.5",
     "gobble-esperanto-bundle": "^0.1.7",
-    "rcu": "git://github.com/ractivejs/rcu#edge",
+    "rcu": "^0.4.0",
     "requirejs": "^2.1.16",
     "resolve": "^1.1.6",
     "tosource": "~0.1.1"
