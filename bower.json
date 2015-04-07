@@ -1,13 +1,13 @@
 {
 	"name": "rvc",
 	"description": "RequireJS plugin to load and optimise Ractive components",
-	"version": "0.2.3",
+	"version": "0.3.0",
 	"author": "Rich Harris",
 	"license": "MIT",
 	"main": ["rvc.js"],
 	"ignore": [
 		"**",
-		"!rvc.js",
+		"!dist/rvc.js",
 		"!README.md"
 	],
 	"repository": {
