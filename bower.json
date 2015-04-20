@@ -4,10 +4,11 @@
 	"version": "0.3.0",
 	"author": "Rich Harris",
 	"license": "MIT",
-	"main": ["rvc.js"],
+	"main": ["dist/rvc.js"],
 	"ignore": [
 		"**",
 		"!dist/rvc.js",
+		"!src/*",
 		"!README.md"
 	],
 	"repository": {
