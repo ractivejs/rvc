@@ -92,7 +92,7 @@
 
 			interval = setInterval( function () {
 				self.set( 'date', new Date() );
-			});
+			}, 900);
 
 			this.on( 'teardown', function () {
 				clearInterval( interval );
