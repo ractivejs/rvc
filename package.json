@@ -1,6 +1,6 @@
 {
   "name": "rvc",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "description": "RequireJS plugin to load and optimise Ractive components",
   "main": "rvc.js",
   "repository": {
@@ -24,7 +24,7 @@
     "gobble-babel": "^4.0.1",
     "gobble-cli": "^0.3.5",
     "gobble-esperanto-bundle": "^0.1.7",
-    "rcu": "^0.4.0",
+    "rcu": "^0.4.2",
     "requirejs": "^2.1.16",
     "resolve": "^1.1.6",
     "tosource": "~0.1.1"
