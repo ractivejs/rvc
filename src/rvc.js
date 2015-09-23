@@ -1,6 +1,6 @@
 import Ractive from 'ractive';
-import amdLoader from './amd-loader';
 import rcu from 'rcu';
+import amdLoader from './utils/amd-loader';
 import load from './load';
 import build from './build';
 

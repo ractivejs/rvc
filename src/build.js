@@ -1,6 +1,6 @@
 import rcu from 'rcu';
-import toSource from './tosource';
-import minifycss from './minifycss';
+import toSource from './utils/tosource';
+import minifycss from './utils/minifycss';
 
 export default function build ( name, source, callback ) {
 	let definition = rcu.parse( source );
