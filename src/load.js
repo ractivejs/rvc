@@ -1,4 +1,4 @@
-import rcu from 'rcu';
+import * as rcu from 'rcu';
 
 export default function load ( base, req, source, callback, errback ) {
 	rcu.make( source, {

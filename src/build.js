@@ -1,4 +1,4 @@
-import rcu from 'rcu';
+import * as rcu from 'rcu';
 import toSource from './utils/tosource';
 import minifycss from './utils/minifycss';
 

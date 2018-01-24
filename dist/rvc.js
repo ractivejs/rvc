@@ -2,76 +2,6 @@ define(['ractive'], function (Ractive) { 'use strict';
 
   Ractive = 'default' in Ractive ? Ractive['default'] : Ractive;
 
-  function getName(path) {
-  	var pathParts, filename, lastIndex;
-
-  	pathParts = path.split('/');
-  	filename = pathParts.pop();
-
-  	lastIndex = filename.lastIndexOf('.');
-  	if (lastIndex !== -1) {
-  		filename = filename.substr(0, lastIndex);
-  	}
-
-  	return filename;
-  }
-
-  function resolvePath(relativePath, base) {
-  	var pathParts, relativePathParts, part;
-
-  	// If we've got an absolute path, or base is '', return
-  	// relativePath
-  	if (!base || relativePath.charAt(0) === '/') {
-  		return relativePath;
-  	}
-
-  	// 'foo/bar/baz.html' -> ['foo', 'bar', 'baz.html']
-  	pathParts = (base || '').split('/');
-  	relativePathParts = relativePath.split('/');
-
-  	// ['foo', 'bar', 'baz.html'] -> ['foo', 'bar']
-  	pathParts.pop();
-
-  	while (part = relativePathParts.shift()) {
-  		if (part === '..') {
-  			pathParts.pop();
-  		} else if (part !== '.') {
-  			pathParts.push(part);
-  		}
-  	}
-
-  	return pathParts.join('/');
-  }
-
-  /**
-   * Encodes a string as base64
-   * @param {string} str - the string to encode
-   * @returns {string}
-   */
-  function _btoa(str) {
-    return new Buffer(str).toString('base64');
-  }
-
-  var SourceMap = function (properties) {
-  	this.version = 3;
-
-  	this.file = properties.file;
-  	this.sources = properties.sources;
-  	this.sourcesContent = properties.sourcesContent;
-  	this.names = properties.names;
-  	this.mappings = properties.mappings;
-  };
-
-  SourceMap.prototype = {
-  	toString: function () {
-  		return JSON.stringify(this);
-  	},
-
-  	toUrl: function () {
-  		return 'data:application/json;charset=utf-8;base64,' + _btoa(this.toString());
-  	}
-  };
-
   var charToInteger = {};
   var integerToChar = {};
 
@@ -119,6 +49,35 @@ define(['ractive'], function (Ractive) { 'use strict';
   	return result;
   }
 
+  /**
+   * Encodes a string as base64
+   * @param {string} str - the string to encode
+   * @returns {string}
+   */
+  function btoa$1(str) {
+  	return new Buffer(str).toString('base64');
+  }
+
+  function SourceMap(properties) {
+  	this.version = 3;
+
+  	this.file = properties.file;
+  	this.sources = properties.sources;
+  	this.sourcesContent = properties.sourcesContent;
+  	this.names = properties.names;
+  	this.mappings = properties.mappings;
+  }
+
+  SourceMap.prototype = {
+  	toString: function toString() {
+  		return JSON.stringify(this);
+  	},
+
+  	toUrl: function toUrl() {
+  		return 'data:application/json;charset=utf-8;base64,' + btoa$1(this.toString());
+  	}
+  };
+
   var alreadyWarned = false;
 
   /**
@@ -132,46 +91,86 @@ define(['ractive'], function (Ractive) { 'use strict';
    * @returns {object}
    */
   function generateSourceMap(definition, options) {
-  	var lines, mappings, offset;
-
-  	if (!options || !options.source) {
-  		throw new Error('You must supply an options object with a `source` property to rcu.generateSourceMap()');
-  	}
+  	if (options === void 0) options = {};
 
   	if ('padding' in options) {
   		options.offset = options.padding;
 
   		if (!alreadyWarned) {
-  			console.log('rcu: options.padding is deprecated, use options.offset instead');
+  			console.warn('rcu: options.padding is deprecated, use options.offset instead'); // eslint-disable-line no-console
   			alreadyWarned = true;
   		}
   	}
 
-  	// The generated code probably includes a load of module gubbins - we don't bother
-  	// mapping that to anything, instead we just have a bunch of empty lines
-  	offset = new Array((options.offset || 0) + 1).join(';');
+  	var mappings = '';
 
-  	lines = definition.script.split('\n');
-  	mappings = offset + lines.map(function (line, i) {
-  		if (i === 0) {
-  			// first mapping points to code immediately following opening <script> tag
-  			return encode([0, 0, definition.scriptStart.line, definition.scriptStart.column]);
+  	if (definition.scriptStart) {
+  		// The generated code probably includes a load of module gubbins - we don't bother
+  		// mapping that to anything, instead we just have a bunch of empty lines
+  		var offset = new Array((options.offset || 0) + 1).join(';');
+  		var lines = definition.script.split('\n');
+
+  		var encoded;
+
+  		if (options.hires !== false) {
+  			var previousLineEnd = -definition.scriptStart.column;
+
+  			encoded = lines.map(function (line, i) {
+  				var lineOffset = i === 0 ? definition.scriptStart.line : 1;
+
+  				var encoded = encode([0, 0, lineOffset, -previousLineEnd]);
+
+  				var lineEnd = line.length;
+
+  				for (var j = 1; j < lineEnd; j += 1) {
+  					encoded += ',CAAC';
+  				}
+
+  				previousLineEnd = i === 0 ? lineEnd + definition.scriptStart.column : Math.max(0, lineEnd - 1);
+
+  				return encoded;
+  			});
+  		} else {
+  			encoded = lines.map(function (line, i) {
+  				if (i === 0) {
+  					// first mapping points to code immediately following opening <script> tag
+  					return encode([0, 0, definition.scriptStart.line, definition.scriptStart.column]);
+  				}
+
+  				if (i === 1) {
+  					return encode([0, 0, 1, -definition.scriptStart.column]);
+  				}
+
+  				return 'AACA'; // equates to [ 0, 0, 1, 0 ];
+  			});
   		}
 
-  		if (i === 1) {
-  			return encode([0, 0, 1, -definition.scriptStart.column]);
-  		}
-
-  		return 'AACA'; // equates to [ 0, 0, 1, 0 ];
-  	}).join(';');
+  		mappings = offset + encoded.join(';');
+  	}
 
   	return new SourceMap({
-  		file: options.file,
-  		sources: [options.source],
+  		file: options.file || null,
+  		sources: [options.source || null],
   		sourcesContent: [definition.source],
   		names: [],
   		mappings: mappings
   	});
+  }
+
+  function getName(path) {
+  	var pathParts = path.split('/');
+  	var filename = pathParts.pop();
+
+  	var lastIndex = filename.lastIndexOf('.');
+  	if (lastIndex !== -1) filename = filename.substr(0, lastIndex);
+
+  	return filename;
+  }
+
+  var Ractive$1;
+
+  function init(copy) {
+  	Ractive$1 = copy;
   }
 
   var _eval;
@@ -212,6 +211,7 @@ define(['ractive'], function (Ractive) { 'use strict';
   } else {
   	base64Encode = function () {};
   }
+
   function eval2(script, options) {
   	options = options || {};
 
@@ -316,6 +316,436 @@ define(['ractive'], function (Ractive) { 'use strict';
   	return cloned;
   }
 
+  function getLocation(source, charIndex) {
+  	var lines = source.split('\n');
+  	var len = lines.length;
+
+  	for (var i = 0, lineStart = 0; i < len; i += 1) {
+  		var line = lines[i];
+  		var lineEnd = lineStart + line.length + 1; // +1 for newline
+
+  		if (lineEnd > charIndex) {
+  			return { line: i + 1, column: charIndex - lineStart };
+  		}
+
+  		lineStart = lineEnd;
+  	}
+
+  	throw new Error("Could not determine location of character " + charIndex);
+  }
+
+  var keywords = /(case|default|delete|do|else|in|instanceof|new|return|throw|typeof|void)\s*$/;
+  var punctuators = /(^|\{|\(|\[\.|;|,|<|>|<=|>=|==|!=|===|!==|\+|-|\*\%|<<|>>|>>>|&|\||\^|!|~|&&|\|\||\?|:|=|\+=|-=|\*=|%=|<<=|>>=|>>>=|&=|\|=|\^=|\/=|\/)\s*$/;
+  var ambiguous = /(\}|\)|\+\+|--)\s*$/;
+  var beforeJsx = /^$|[=:;,\(\{\}\[|&+]\s*$/;
+
+  function find(str) {
+  	var quote;
+  	var escapedFrom;
+  	var regexEnabled = true;
+  	var pfixOp = false;
+  	var jsxTagDepth = 0;
+  	var stack = [];
+
+  	var start;
+  	var found = [];
+  	var state = base;
+
+  	function base(char, i) {
+  		if (char === '/') {
+  			// could be start of regex literal OR division punctuator. Solution via
+  			// http://stackoverflow.com/questions/5519596/when-parsing-javascript-what-determines-the-meaning-of-a-slash/27120110#27120110
+  			var substr = str.substr(0, i);
+  			if (keywords.test(substr) || punctuators.test(substr)) {
+  				regexEnabled = true;
+  			} else if (ambiguous.test(substr) && !tokenClosesExpression(substr, found)) {
+  				regexEnabled = true;
+  			} // TODO save this determination for when it's necessary?
+  			else {
+  					regexEnabled = false;
+  				}
+
+  			return start = i, slash;
+  		}
+
+  		if (char === '"' || char === "'") {
+  			return start = i, quote = char, stack.push(base), string;
+  		}
+  		if (char === '`') {
+  			return start = i, templateString;
+  		}
+
+  		if (char === '{') {
+  			return stack.push(base), base;
+  		}
+  		if (char === '}') {
+  			return start = i, stack.pop();
+  		}
+
+  		if (!(pfixOp && /\W/.test(char))) {
+  			pfixOp = char === '+' && str[i - 1] === '+' || char === '-' && str[i - 1] === '-';
+  		}
+
+  		if (char === '<') {
+  			var substr$1 = str.substr(0, i);
+  			substr$1 = _erase(substr$1, found).trim();
+  			if (beforeJsx.test(substr$1)) {
+  				return stack.push(base), jsxTagStart;
+  			}
+  		}
+
+  		return base;
+  	}
+
+  	function slash(char) {
+  		if (char === '/') {
+  			return lineComment;
+  		}
+  		if (char === '*') {
+  			return blockComment;
+  		}
+  		if (char === '[') {
+  			return regexEnabled ? regexCharacter : base;
+  		}
+  		if (char === '\\') {
+  			return escapedFrom = regex, escaped;
+  		}
+  		return regexEnabled && !pfixOp ? regex : base;
+  	}
+
+  	function regex(char, i) {
+  		if (char === '[') {
+  			return regexCharacter;
+  		}
+  		if (char === '\\') {
+  			return escapedFrom = regex, escaped;
+  		}
+
+  		if (char === '/') {
+  			var end = i + 1;
+  			var outer = str.slice(start, end);
+  			var inner = outer.slice(1, -1);
+
+  			found.push({ start: start, end: end, inner: inner, outer: outer, type: 'regex' });
+
+  			return base;
+  		}
+
+  		return regex;
+  	}
+
+  	function regexCharacter(char) {
+  		if (char === ']') {
+  			return regex;
+  		}
+  		if (char === '\\') {
+  			return escapedFrom = regexCharacter, escaped;
+  		}
+  		return regexCharacter;
+  	}
+
+  	function string(char, i) {
+  		if (char === '\\') {
+  			return escapedFrom = string, escaped;
+  		}
+  		if (char === quote) {
+  			var end = i + 1;
+  			var outer = str.slice(start, end);
+  			var inner = outer.slice(1, -1);
+
+  			found.push({ start: start, end: end, inner: inner, outer: outer, type: 'string' });
+
+  			return stack.pop();
+  		}
+
+  		return string;
+  	}
+
+  	function escaped() {
+  		return escapedFrom;
+  	}
+
+  	function templateString(char, i) {
+  		if (char === '$') {
+  			return templateStringDollar;
+  		}
+  		if (char === '\\') {
+  			return escapedFrom = templateString, escaped;
+  		}
+
+  		if (char === '`') {
+  			var end = i + 1;
+  			var outer = str.slice(start, end);
+  			var inner = outer.slice(1, -1);
+
+  			found.push({ start: start, end: end, inner: inner, outer: outer, type: 'templateEnd' });
+
+  			return base;
+  		}
+
+  		return templateString;
+  	}
+
+  	function templateStringDollar(char, i) {
+  		if (char === '{') {
+  			var end = i + 1;
+  			var outer = str.slice(start, end);
+  			var inner = outer.slice(1, -2);
+
+  			found.push({ start: start, end: end, inner: inner, outer: outer, type: 'templateChunk' });
+
+  			stack.push(templateString);
+  			return base;
+  		}
+  		return templateString(char, i);
+  	}
+
+  	// JSX is an XML-like extension to ECMAScript
+  	// https://facebook.github.io/jsx/
+
+  	function jsxTagStart(char) {
+  		if (char === '/') {
+  			return jsxTagDepth--, jsxTag;
+  		}
+  		return jsxTagDepth++, jsxTag;
+  	}
+
+  	function jsxTag(char, i) {
+  		if (char === '"' || char === "'") {
+  			return start = i, quote = char, stack.push(jsxTag), string;
+  		}
+  		if (char === '{') {
+  			return stack.push(jsxTag), base;
+  		}
+  		if (char === '>') {
+  			if (jsxTagDepth <= 0) {
+  				return base;
+  			}
+  			return jsx;
+  		}
+  		if (char === '/') {
+  			return jsxTagSelfClosing;
+  		}
+
+  		return jsxTag;
+  	}
+
+  	function jsxTagSelfClosing(char) {
+  		if (char === '>') {
+  			jsxTagDepth--;
+  			if (jsxTagDepth <= 0) {
+  				return base;
+  			}
+  			return jsx;
+  		}
+
+  		return jsxTag;
+  	}
+
+  	function jsx(char) {
+  		if (char === '{') {
+  			return stack.push(jsx), base;
+  		}
+  		if (char === '<') {
+  			return jsxTagStart;
+  		}
+
+  		return jsx;
+  	}
+
+  	function lineComment(char, end) {
+  		if (char === '\n') {
+  			var outer = str.slice(start, end);
+  			var inner = outer.slice(2);
+
+  			found.push({ start: start, end: end, inner: inner, outer: outer, type: 'line' });
+
+  			return base;
+  		}
+
+  		return lineComment;
+  	}
+
+  	function blockComment(char) {
+  		if (char === '*') {
+  			return blockCommentEnding;
+  		}
+  		return blockComment;
+  	}
+
+  	function blockCommentEnding(char, i) {
+  		if (char === '/') {
+  			var end = i + 1;
+  			var outer = str.slice(start, end);
+  			var inner = outer.slice(2, -2);
+
+  			found.push({ start: start, end: end, inner: inner, outer: outer, type: 'block' });
+
+  			return base;
+  		}
+
+  		return blockComment(char);
+  	}
+
+  	for (var i = 0; i < str.length; i += 1) {
+  		if (!state) {
+  			var ref = getLocation(str, i);
+  			var line = ref.line;
+  			var column = ref.column;
+  			var before = str.slice(0, i);
+  			var beforeLine = /(^|\n).+$/.exec(before)[0];
+  			var after = str.slice(i);
+  			var afterLine = /.+(\n|$)/.exec(after)[0];
+
+  			var snippet = "" + beforeLine + afterLine + "\n" + Array(beforeLine.length + 1).join(' ') + "^";
+
+  			throw new Error("Unexpected character (" + line + ":" + column + "). If this is valid JavaScript, it's probably a bug in tippex. Please raise an issue at https://github.com/Rich-Harris/tippex/issues – thanks!\n\n" + snippet);
+  		}
+
+  		state = state(str[i], i);
+  	}
+
+  	return found;
+  }
+
+  function tokenClosesExpression(substr, found) {
+  	substr = _erase(substr, found);
+
+  	var token = ambiguous.exec(substr);
+  	if (token) {
+  		token = token[1];
+  	}
+
+  	if (token === ')') {
+  		var count = 0;
+  		var i = substr.length;
+  		while (i--) {
+  			if (substr[i] === ')') {
+  				count += 1;
+  			}
+
+  			if (substr[i] === '(') {
+  				count -= 1;
+  				if (count === 0) {
+  					i -= 1;
+  					break;
+  				}
+  			}
+  		}
+
+  		// if parenthesized expression is immediately preceded by `if`/`while`, it's not closing an expression
+  		while (/\s/.test(substr[i - 1])) {
+  			i -= 1;
+  		}
+  		if (substr.slice(i - 2, i) === 'if' || substr.slice(i - 5, i) === 'while') {
+  			return false;
+  		}
+  	}
+
+  	// TODO handle }, ++ and -- tokens immediately followed by / character
+  	return true;
+  }
+
+  function spaces(count) {
+  	var spaces = '';
+  	while (count--) {
+  		spaces += ' ';
+  	}
+  	return spaces;
+  }
+
+  var erasers = {
+  	string: function (chunk) {
+  		return chunk.outer[0] + spaces(chunk.inner.length) + chunk.outer[0];
+  	},
+  	line: function (chunk) {
+  		return spaces(chunk.outer.length);
+  	},
+  	block: function (chunk) {
+  		return chunk.outer.split('\n').map(function (line) {
+  			return spaces(line.length);
+  		}).join('\n');
+  	},
+  	regex: function (chunk) {
+  		return '/' + spaces(chunk.inner.length) + '/';
+  	},
+  	templateChunk: function (chunk) {
+  		return chunk.outer[0] + spaces(chunk.inner.length) + '${';
+  	},
+  	templateEnd: function (chunk) {
+  		return chunk.outer[0] + spaces(chunk.inner.length) + '`';
+  	}
+  };
+
+  function _erase(str, found) {
+  	var erased = '';
+  	var charIndex = 0;
+
+  	for (var i = 0; i < found.length; i += 1) {
+  		var chunk = found[i];
+  		erased += str.slice(charIndex, chunk.start);
+  		erased += erasers[chunk.type](chunk);
+
+  		charIndex = chunk.end;
+  	}
+
+  	erased += str.slice(charIndex);
+  	return erased;
+  }
+
+  function makeGlobalRegExp(original) {
+  	var flags = 'g';
+
+  	if (original.multiline) {
+  		flags += 'm';
+  	}
+  	if (original.ignoreCase) {
+  		flags += 'i';
+  	}
+  	if (original.sticky) {
+  		flags += 'y';
+  	}
+  	if (original.unicode) {
+  		flags += 'u';
+  	}
+
+  	return new RegExp(original.source, flags);
+  }
+
+  function match(str, pattern, callback) {
+  	var g = pattern.global;
+  	if (!g) {
+  		pattern = makeGlobalRegExp(pattern);
+  	}
+
+  	var found = find(str);
+
+  	var match;
+  	var chunkIndex = 0;
+
+  	while (match = pattern.exec(str)) {
+  		var chunk = void 0;
+
+  		do {
+  			chunk = found[chunkIndex];
+
+  			if (chunk && chunk.end < match.index) {
+  				chunkIndex += 1;
+  			} else {
+  				break;
+  			}
+  		} while (chunk);
+
+  		if (!chunk || chunk.start > match.index) {
+  			var args = [].slice.call(match).concat(match.index, str);
+  			callback.apply(null, args);
+  			if (!g) {
+  				break;
+  			}
+  		}
+  	}
+  }
+
   /**
    * Finds the line and column position of character `char`
      in a (presumably) multi-line string
@@ -332,10 +762,8 @@ define(['ractive'], function (Ractive) { 'use strict';
   	var lineStart = 0;
 
   	var lineEnds = lines.map(function (line) {
-  		var lineEnd = lineStart + line.length + 1; // +1 for the newline
-
-  		lineStart = lineEnd;
-  		return lineEnd;
+  		lineStart += line.length + 1; // +1 for the newline
+  		return lineStart;
   	});
 
   	lineStart = 0;
@@ -350,48 +778,50 @@ define(['ractive'], function (Ractive) { 'use strict';
   }
 
   var requirePattern = /require\s*\(\s*(?:"([^"]+)"|'([^']+)')\s*\)/g;
-  var TEMPLATE_VERSION = 3;
-  function parse(source) {
-  	var parsed, template, links, imports, scriptItem, script, styles, match, modules, i, item, result;
+  var TEMPLATE_VERSION = 4;
 
-  	if (!rcu.Ractive) {
+  function parse(source, parseOptions, typeAttrs) {
+  	if (!Ractive$1) {
   		throw new Error('rcu has not been initialised! You must call rcu.init(Ractive) before rcu.parse()');
   	}
 
-  	parsed = rcu.Ractive.parse(source, {
+  	var parsed = Ractive$1.parse(source, Object.assign({
   		noStringify: true,
-  		interpolate: { script: false, style: false },
-  		includeLinePositions: true
-  	});
+  		interpolate: { script: false, style: false }
+  	}, parseOptions || {}, { includeLinePositions: true }));
 
   	if (parsed.v !== TEMPLATE_VERSION) {
-  		throw new Error('Mismatched template version (expected ' + TEMPLATE_VERSION + ', got ' + parsed.v + ')! Please ensure you are using the latest version of Ractive.js in your build process as well as in your app');
+  		console.warn("Mismatched template version (expected " + TEMPLATE_VERSION + ", got " + parsed.v + ")! Please ensure you are using the latest version of Ractive.js in your build process as well as in your app"); // eslint-disable-line no-console
   	}
 
-  	links = [];
-  	styles = [];
-  	modules = [];
+  	var links = [];
+  	var styles = [];
+  	var modules = [];
 
   	// Extract certain top-level nodes from the template. We work backwards
   	// so that we can easily splice them out as we go
-  	template = parsed.t;
-  	i = template.length;
+  	var template = parsed.t;
+  	var i = template.length;
+  	var scriptItem;
+
   	while (i--) {
-  		item = template[i];
+  		var item = template[i];
 
   		if (item && item.t === 7) {
-  			if (item.e === 'link' && (item.a && item.a.rel === 'ractive')) {
+  			var attr = getAttr('rel', item);
+  			if (item.e === 'link' && attr === 'ractive') {
   				links.push(template.splice(i, 1)[0]);
   			}
 
-  			if (item.e === 'script' && (!item.a || !item.a.type || item.a.type === 'text/javascript')) {
+  			attr = getAttr('type', item);
+  			if (item.e === 'script' && (!attr || attr === (typeAttrs && typeAttrs.js ? typeAttrs.js : 'text/javascript'))) {
   				if (scriptItem) {
   					throw new Error('You can only have one <script> tag per component file');
   				}
   				scriptItem = template.splice(i, 1)[0];
   			}
 
-  			if (item.e === 'style' && (!item.a || !item.a.type || item.a.type === 'text/css')) {
+  			if (item.e === 'style' && (!attr || attr === (typeAttrs && typeAttrs.css ? typeAttrs.css : 'text/css'))) {
   				styles.push(template.splice(i, 1)[0]);
   			}
   		}
@@ -399,19 +829,15 @@ define(['ractive'], function (Ractive) { 'use strict';
 
   	// Clean up template - trim whitespace left over from the removal
   	// of <link>, <style> and <script> tags from start...
-  	while (/^\s*$/.test(template[0])) {
-  		template.shift();
-  	}
+  	while (/^\s*$/.test(template[0])) template.shift();
 
   	// ...and end
-  	while (/^\s*$/.test(template[template.length - 1])) {
-  		template.pop();
-  	}
+  	while (/^\s*$/.test(template[template.length - 1])) template.pop();
 
   	// Extract names from links
-  	imports = links.map(function (link) {
-  		var href = link.a.href;
-  		var name = link.a.name || getName(href);
+  	var imports = links.map(function (link) {
+  		var href = getAttr('href', link);
+  		var name = getAttr('name', link) || getName(href);
 
   		if (typeof name !== 'string') {
   			throw new Error('Error parsing link tag');
@@ -420,15 +846,17 @@ define(['ractive'], function (Ractive) { 'use strict';
   		return { name: name, href: href };
   	});
 
-  	result = {
+  	var result = {
   		source: source, imports: imports, modules: modules,
   		template: parsed,
-  		css: styles.map(extractFragment).join(' '),
+  		css: styles.map(function (item) {
+  			return item.f;
+  		}).join(' '),
   		script: ''
   	};
 
   	// extract position information, so that we can generate source maps
-  	if (scriptItem) {
+  	if (scriptItem && scriptItem.f) {
   		var content = scriptItem.f[0];
 
   		var contentStart = source.indexOf('>', scriptItem.p[2]) + 1;
@@ -444,39 +872,73 @@ define(['ractive'], function (Ractive) { 'use strict';
 
   		result.script = source.slice(contentStart, contentEnd);
 
-  		while (match = requirePattern.exec(result.script)) {
-  			modules.push(match[1] || match[2]);
-  		}
+  		match(result.script, requirePattern, function (match, doubleQuoted, singleQuoted) {
+  			var source = doubleQuoted || singleQuoted;
+  			if (! ~modules.indexOf(source)) modules.push(source);
+  		});
+  	}
+
+  	// remove line positions to reduce the size
+  	if (parseOptions && parseOptions.includeLinePositions === false) {
+  		var clean = function (value) {
+  			if (!value || typeof value !== 'object') {
+  				return value;
+  			}
+
+  			if (Object.prototype.hasOwnProperty.call(value, 'p') && Array.isArray(value.p) && !value.p.filter(function (n) {
+  				return !Number.isInteger(n);
+  			}).length) {
+  				delete value.p;
+  			}
+
+  			Object.keys(value).forEach(function (key) {
+  				return clean(value[key]);
+  			});
+  			return value;
+  		};
+
+  		clean(result);
   	}
 
   	return result;
   }
 
-  function extractFragment(item) {
-  	return item.f;
+  function getAttr(name, node) {
+  	if (node.a && node.a[name]) return node.a[name];else if (node.m) {
+  		var i = node.m.length;
+  		while (i--) {
+  			var a = node.m[i];
+  			// plain attribute
+  			if (a.t === 13) {
+  				if (a.n === name) return a.f;
+  			}
+  		}
+  	}
   }
 
   function make(source, config, callback, errback) {
-  	var definition, url, createComponent, loadImport, imports, loadModule, modules, remainingDependencies, onloaded, ready;
-
   	config = config || {};
 
   	// Implementation-specific config
-  	url = config.url || '';
-  	loadImport = config.loadImport;
-  	loadModule = config.loadModule;
+  	var url = config.url || '';
+  	var loadImport = config.loadImport;
+  	var loadModule = config.loadModule;
+  	var parseOptions = config.parseOptions;
+  	var typeAttrs = config.typeAttrs;
 
-  	definition = parse(source);
+  	var definition = parse(source, parseOptions, typeAttrs);
 
-  	createComponent = function () {
-  		var options, Component, factory, component, exports, prop;
+  	var imports = {};
 
-  		options = {
+  	function createComponent() {
+  		var options = {
   			template: definition.template,
   			partials: definition.partials,
   			css: definition.css,
   			components: imports
   		};
+
+  		var Component;
 
   		if (definition.script) {
   			var sourceMap = generateSourceMap(definition, {
@@ -485,23 +947,23 @@ define(['ractive'], function (Ractive) { 'use strict';
   			});
 
   			try {
-  				factory = new eval2.Function('component', 'require', 'Ractive', definition.script, {
+  				var factory = new eval2.Function('component', 'require', 'Ractive', definition.script, {
   					sourceMap: sourceMap
   				});
 
-  				component = {};
-  				factory(component, config.require, rcu.Ractive);
-  				exports = component.exports;
+  				var component = {};
+  				factory(component, config.require, Ractive$1);
+  				var exports = component.exports;
 
   				if (typeof exports === 'object') {
-  					for (prop in exports) {
+  					for (var prop in exports) {
   						if (exports.hasOwnProperty(prop)) {
   							options[prop] = exports[prop];
   						}
   					}
   				}
 
-  				Component = rcu.Ractive.extend(options);
+  				Component = Ractive$1.extend(options);
   			} catch (err) {
   				errback(err);
   				return;
@@ -509,10 +971,10 @@ define(['ractive'], function (Ractive) { 'use strict';
 
   			callback(Component);
   		} else {
-  			Component = rcu.Ractive.extend(options);
+  			Component = Ractive$1.extend(options);
   			callback(Component);
   		}
-  	};
+  	}
 
   	// If the definition includes sub-components e.g.
   	//     <link rel='ractive' href='foo.html'>
@@ -522,25 +984,24 @@ define(['ractive'], function (Ractive) { 'use strict';
   	//
   	// In some environments (e.g. AMD) the same goes for modules, which
   	// most be loaded before the script can execute
-  	remainingDependencies = definition.imports.length + (loadModule ? definition.modules.length : 0);
+  	var remainingDependencies = definition.imports.length + (loadModule ? definition.modules.length : 0);
+  	var ready = false;
 
   	if (remainingDependencies) {
-  		onloaded = function () {
+  		var onloaded = function () {
   			if (! --remainingDependencies) {
   				if (ready) {
   					createComponent();
   				} else {
-  					setTimeout(createComponent, 0); // cheap way to enforce asynchrony for a non-Zalgoesque API
+  					setTimeout(createComponent); // cheap way to enforce asynchrony for a non-Zalgoesque API
   				}
   			}
   		};
 
   		if (definition.imports.length) {
   			if (!loadImport) {
-  				throw new Error('Component definition includes imports (e.g. `<link rel="ractive" href="' + definition.imports[0].href + '">`) but no loadImport method was passed to rcu.make()');
+  				throw new Error("Component definition includes imports (e.g. <link rel=\"ractive\" href=\"" + definition.imports[0].href + "\">) but no loadImport method was passed to rcu.make()");
   			}
-
-  			imports = {};
 
   			definition.imports.forEach(function (toImport) {
   				loadImport(toImport.name, toImport.href, url, function (Component) {
@@ -551,13 +1012,8 @@ define(['ractive'], function (Ractive) { 'use strict';
   		}
 
   		if (loadModule && definition.modules.length) {
-  			modules = {};
-
   			definition.modules.forEach(function (name) {
-  				loadModule(name, name, url, function (Component) {
-  					modules[name] = Component;
-  					onloaded();
-  				});
+  				loadModule(name, name, url, onloaded);
   			});
   		}
   	} else {
@@ -567,17 +1023,32 @@ define(['ractive'], function (Ractive) { 'use strict';
   	ready = true;
   }
 
-  var rcu = {
-  	init: function (copy) {
-  		rcu.Ractive = copy;
-  	},
+  function resolvePath(relativePath, base) {
+  	// If we've got an absolute path, or base is '', return
+  	// relativePath
+  	if (!base || relativePath.charAt(0) === '/') {
+  		return relativePath;
+  	}
 
-  	parse: parse,
-  	make: make,
-  	generateSourceMap: generateSourceMap,
-  	resolve: resolvePath,
-  	getName: getName
-  };
+  	// 'foo/bar/baz.html' -> ['foo', 'bar', 'baz.html']
+  	var pathParts = (base || '').split('/');
+  	var relativePathParts = relativePath.split('/');
+
+  	// ['foo', 'bar', 'baz.html'] -> ['foo', 'bar']
+  	pathParts.pop();
+
+  	var part;
+
+  	while (part = relativePathParts.shift()) {
+  		if (part === '..') {
+  			pathParts.pop();
+  		} else if (part !== '.') {
+  			pathParts.push(part);
+  		}
+  	}
+
+  	return pathParts.join('/');
+  }
 
   /*
     amd-loader
@@ -759,11 +1230,11 @@ define(['ractive'], function (Ractive) { 'use strict';
     };
   }
 
-  function _load(base, req, source, callback, errback) {
-  	rcu.make(source, {
+  function load(base, req, source, callback, errback) {
+  	make(source, {
   		url: base + '.html',
   		loadImport: function (name, path, baseUrl, callback) {
-  			path = rcu.resolve(path, base);
+  			path = resolvePath(path, base);
   			req(['rvc!' + path.replace(/\.html$/, '')], callback);
   		},
   		loadModule: function (name, path, baseUrl, callback) {
@@ -773,13 +1244,6 @@ define(['ractive'], function (Ractive) { 'use strict';
   			return req(name);
   		}
   	}, callback, errback);
-  }
-
-  // TODO more intelligent minification? removing comments?
-  // collapsing declarations?
-
-  function minifycss(css) {
-  	return css.replace(/^\s+/gm, '');
   }
 
   /*
@@ -837,8 +1301,15 @@ define(['ractive'], function (Ractive) { 'use strict';
       );
   }
 
+  // TODO more intelligent minification? removing comments?
+  // collapsing declarations?
+
+  function minifycss(css) {
+  	return css.replace(/^\s+/gm, '');
+  }
+
   function build(name, source, callback) {
-  	var definition = rcu.parse(source);
+  	var definition = parse(source);
   	var dependencies = ['require', 'ractive'];
   	var dependencyArgs = ['require', 'Ractive'];
   	var importMap = [];
@@ -880,13 +1351,13 @@ define(['ractive'], function (Ractive) { 'use strict';
   	callback(builtModule);
   }
 
-  rcu.init(Ractive);
+  init(Ractive);
 
   var rvc = loader('rvc', 'html', function (name, source, req, callback, errback, config) {
   	if (config.isBuild) {
   		build(name, source, callback, errback);
   	} else {
-  		_load(name, req, source, callback, errback);
+  		load(name, req, source, callback, errback);
   	}
   });
 
