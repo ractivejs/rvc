@@ -779,16 +779,23 @@ define(['ractive'], function (Ractive) { 'use strict';
 
   var requirePattern = /require\s*\(\s*(?:"([^"]+)"|'([^']+)')\s*\)/g;
   var TEMPLATE_VERSION = 4;
+  var CACHE_PREFIX = '_rcu_';
 
-  function parse(source, parseOptions, typeAttrs) {
+  function parse(source, parseOptions, typeAttrs, identifier, versionSuffix) {
   	if (!Ractive$1) {
   		throw new Error('rcu has not been initialised! You must call rcu.init(Ractive) before rcu.parse()');
   	}
 
-  	var parsed = Ractive$1.parse(source, Object.assign({
+  	var fromCache = getFromCache(source, identifier);
+
+  	var parsed = fromCache || Ractive$1.parse(source, Object.assign({
   		noStringify: true,
   		interpolate: { script: false, style: false }
   	}, parseOptions || {}, { includeLinePositions: true }));
+
+  	if (fromCache === undefined) {
+  		registerCache(source, parsed, identifier, versionSuffix);
+  	}
 
   	if (parsed.v !== TEMPLATE_VERSION) {
   		console.warn("Mismatched template version (expected " + TEMPLATE_VERSION + ", got " + parsed.v + ")! Please ensure you are using the latest version of Ractive.js in your build process as well as in your app"); // eslint-disable-line no-console
@@ -855,11 +862,16 @@ define(['ractive'], function (Ractive) { 'use strict';
   		script: ''
   	};
 
+  	if (identifier) {
+  		result._componentPath = identifier;
+  	}
+
   	// extract position information, so that we can generate source maps
   	if (scriptItem && scriptItem.f) {
   		var content = scriptItem.f[0];
 
-  		var contentStart = source.indexOf('>', scriptItem.p[2]) + 1;
+  		// Ractive >= 0.10 uses .q, older versions use .p
+  		var contentStart = source.indexOf('>', scriptItem.q ? scriptItem.q[2] : scriptItem.p[2]) + 1;
 
   		// we have to jump through some hoops to find contentEnd, because the contents
   		// of the <script> tag get trimmed at parse time
@@ -885,11 +897,15 @@ define(['ractive'], function (Ractive) { 'use strict';
   				return value;
   			}
 
-  			if (Object.prototype.hasOwnProperty.call(value, 'p') && Array.isArray(value.p) && !value.p.filter(function (n) {
-  				return !Number.isInteger(n);
-  			}).length) {
-  				delete value.p;
-  			}
+  			// Ractive >= 0.10 uses .q, older versions use .p
+  			['q', 'p'].some(function (key) {
+  				if (Object.prototype.hasOwnProperty.call(value, key) && Array.isArray(value[key]) && !value[key].filter(function (n) {
+  					return !Number.isInteger(n);
+  				}).length) {
+  					delete value[key];
+  					return true;
+  				}
+  			});
 
   			Object.keys(value).forEach(function (key) {
   				return clean(value[key]);
@@ -901,6 +917,60 @@ define(['ractive'], function (Ractive) { 'use strict';
   	}
 
   	return result;
+  }
+
+  function checksum(s) {
+  	var chk = 0x12345678;
+  	var len = s.length;
+
+  	for (var i = 0; i < len; i++) {
+  		chk += s.charCodeAt(i) * (i + 1);
+  	}
+
+  	return (chk & 0xffffffff).toString(16);
+  }
+
+  var getCacheKey = function (identifier, checksum) {
+  	return identifier ? CACHE_PREFIX + identifier : CACHE_PREFIX + checksum;
+  };
+
+  var prepareCacheEntry = function (compiled, checkSum, versionSuffix) {
+  	return {
+  		date: new Date(),
+  		checkSum: checkSum,
+  		data: compiled,
+  		versionSuffix: versionSuffix,
+  		ractiveVersion: Ractive$1.VERSION
+  	};
+  };
+
+  var registerCache = function (source, compiled, identifier, versionSuffix) {
+  	try {
+  		var checkSum = checksum(source);
+  		if (typeof window != 'undefined' && typeof window.localStorage != 'undefined') {
+  			window.localStorage.setItem(getCacheKey(identifier, checkSum), JSON.stringify(prepareCacheEntry(compiled, checkSum, versionSuffix)));
+  		}
+  	} catch (e) {
+  		//noop
+  	}
+  };
+
+  function getFromCache(source, identifier) {
+  	try {
+  		var checkSum = checksum(source);
+  		if (typeof window != 'undefined' && typeof window.localStorage != 'undefined') {
+  			var item = localStorage.getItem(getCacheKey(identifier, checkSum));
+  			if (item) {
+  				var parsed = JSON.parse(item);
+  				return parsed.checkSum === checkSum && Ractive$1.VERSION === parsed.ractiveVersion ? parsed.data : undefined;
+  			} else {
+  				return undefined;
+  			}
+  		}
+  	} catch (e) {
+  		//noop
+  	}
+  	return undefined;
   }
 
   function getAttr(name, node) {
@@ -921,20 +991,40 @@ define(['ractive'], function (Ractive) { 'use strict';
 
   	// Implementation-specific config
   	var url = config.url || '';
+  	var versionSuffix = config.versionSuffix || '';
   	var loadImport = config.loadImport;
   	var loadModule = config.loadModule;
   	var parseOptions = config.parseOptions;
   	var typeAttrs = config.typeAttrs;
 
-  	var definition = parse(source, parseOptions, typeAttrs);
+  	var definition = parse(source, parseOptions, typeAttrs, url, versionSuffix);
 
   	var imports = {};
+
+  	function cssContainsRactiveDelimiters(cssDefinition) {
+  		//TODO: this can use Ractive's default delimiter definitions, and perhaps a single REGEX for match
+  		return cssDefinition && cssDefinition.indexOf('{{') !== -1 && cssDefinition.indexOf('}}') !== -1;
+  	}
+
+  	function determineCss(cssDefinition) {
+  		if (cssContainsRactiveDelimiters(cssDefinition)) {
+  			return function (d) {
+  				return Ractive$1({
+  					template: definition.css,
+  					data: d()
+  				}).fragment.toString(false);
+  			};
+  		} else {
+  			return definition.css;
+  		}
+  	}
 
   	function createComponent() {
   		var options = {
   			template: definition.template,
   			partials: definition.partials,
-  			css: definition.css,
+  			_componentPath: definition._componentPath,
+  			css: determineCss(definition.css),
   			components: imports
   		};
 
