@@ -1,5 +1,9 @@
 # changelog
 
+## 0.6.0
+
+* Update deps to support Ractive > 0.10
+
 ## 0.4.0
 
 * Update `rcu` version
